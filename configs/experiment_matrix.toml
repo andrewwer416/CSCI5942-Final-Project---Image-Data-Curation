@@ -1,0 +1,51 @@
+schema_version = 1
+
+[study]
+initial_run_count = 9
+maximum_follow_up_runs = 5
+
+[[initial_runs]]
+run_id = "random__standard_rgb"
+selection = "random"
+preprocessing = "standard_rgb"
+shared_baseline = true
+
+[[initial_runs]]
+run_id = "category_balanced__standard_rgb"
+selection = "category_balanced"
+preprocessing = "standard_rgb"
+
+[[initial_runs]]
+run_id = "visual_diversity__standard_rgb"
+selection = "visual_diversity"
+preprocessing = "standard_rgb"
+
+[[initial_runs]]
+run_id = "caption_semantic_diversity__standard_rgb"
+selection = "caption_semantic_diversity"
+preprocessing = "standard_rgb"
+
+[[initial_runs]]
+run_id = "quality_aware_diversity__standard_rgb"
+selection = "quality_aware_diversity"
+preprocessing = "standard_rgb"
+
+[[initial_runs]]
+run_id = "random__aspect_ratio_preserving_rgb"
+selection = "random"
+preprocessing = "aspect_ratio_preserving_rgb"
+
+[[initial_runs]]
+run_id = "random__random_resized_crop"
+selection = "random"
+preprocessing = "random_resized_crop"
+
+[[initial_runs]]
+run_id = "random__color_contrast_normalization"
+selection = "random"
+preprocessing = "color_contrast_normalization"
+
+[[initial_runs]]
+run_id = "random__rgb_plus_clip_features"
+selection = "random"
+preprocessing = "rgb_plus_clip_features"

@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+dist/
+build/
+*.egg-info/
+
+# Local tooling
+.env
+.env.*
+!.env.example
+.idea/
+.vscode/
+
+# Generated data and model artifacts
+data/raw/**
+data/interim/**
+data/processed/**
+reports/data/**
+artifacts/
+checkpoints/
+*.pt
+*.pth
+*.ckpt
+
+# Keep documentation for generated directories
+!data/README.md
+!reports/README.md
+
+# Download remnants
+*.part
