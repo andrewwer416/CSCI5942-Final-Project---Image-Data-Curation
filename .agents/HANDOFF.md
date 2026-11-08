@@ -5,8 +5,8 @@
 ## Last session
 
 **Date**: 2026-11-07
-**Objective**: Turn the assignment proposal into a reproducible data foundation and prepare the
-first usable data artifacts.
+**Objective**: Ground category balancing in reproducible analysis of the real COCO training
+manifest and generate the approved selection.
 
 ### What was done
 
@@ -16,6 +16,9 @@ first usable data artifacts.
 - Built canonical manifests for 118,287 train and 5,000 validation images.
 - Generated the seed-5942 random baseline with exactly 15,000 unique training images.
 - Validated counts, five-caption policy, hashes, source identity, and split isolation with no errors.
+- Added a count-sensitivity command that recommends the 2.5% threshold and nonbinding 4× cap.
+- Generated a 15,000-image category-balanced set by swapping 948 random-baseline images (6.32%),
+  retaining 93.68% of the paired baseline and meeting 36 of 36 targets.
 
 ### Decisions made
 
@@ -26,22 +29,25 @@ first usable data artifacts.
 | Retain lowest five caption IDs | Real COCO has a few images with 6–7 captions; proposal requires five | Yes, versioned |
 | HTTP downloads require pinned size and SHA-256 | Official COCO page publishes HTTP archive links | Yes |
 | Defer large image archives | Not needed to establish manifest and selection integrity | Yes |
-| Keep category balancing provisional | Proposal does not define the balancing objective | Yes |
+| Calibrate category balance from train counts | Avoid presenting 2.5% / 4× as literature constants | Yes, versioned |
+| Repair the paired random baseline | Isolate rare coverage and avoid an object-density confound | Yes, versioned |
 
 ### Main files added
 
 - `README.md`, `CLAUDE.md`, `STATUS.md` — entry points and current state
 - `configs/` — data parameters and exact nine-run matrix
-- `src/vlm_data/` — acquisition, manifest, selection, caption sampling, and validation
+- `src/vlm_data/` — acquisition, manifest, category analysis, selection, caption sampling, and validation
 - `tests/` — synthetic offline regression suite
-- `docs/data-foundation.md` — contract, leakage boundary, and open decisions
+- `docs/data-foundation.md` and `docs/background-research.md` — contract, evidence, and decisions
 
 ## Current state
 
 ### Ready
 
-- `make test`: 16 tests passing.
-- `make validate`: real manifests and baseline valid.
+- `make test`: 25 tests passing.
+- `make validate`: canonical, random, and category-balanced manifests valid.
+- `make analyze-category-balance`: real train-only report recommends 2.5% / 4× and verifies at
+  least 5% of the paired baseline changes.
 - Generated data and reports are local and ignored by Git.
 
 ### Blockers / deliberate deferrals
@@ -68,7 +74,7 @@ first usable data artifacts.
 
 - Implement the dataset loader and lazy preprocessing transforms.
 - Pin the frozen CLIP model/revision before generating visual or caption embeddings.
-- Approve or replace the provisional category-balancing objective before using it in a study run.
+- Use the SHA-pinned category-balance report and selection metadata in the study audit trail.
 
 ## Session log
 
@@ -84,3 +90,10 @@ first usable data artifacts.
 - Outcome: repository initialized on `main`; source, configuration, tests, PDF, and documentation
   committed while downloaded/generated COCO artifacts remained ignored.
 - Remote: `andrewwer416/CSCI5942-Final-Project---Image-Data-Curation`.
+
+### Session 3 — 2026-11-07
+
+- Objective: ground the proposed category-balance constants in real-data analysis.
+- Outcome: added a train-only sensitivity command, selected the 2.5% threshold and nonbinding 4×
+  cap, repaired 948 baseline images (6.32%), met 36 of 36 targets, generated the real 15k
+  selection, and passed validation.

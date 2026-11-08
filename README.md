@@ -26,6 +26,12 @@ python3 -m venv .venv
 # Materialize the shared, deterministic 15,000-image baseline.
 .venv/bin/vlm-data select --method random
 
+# Calibrate the category-balance values from real train2017 counts and simulate the selection.
+.venv/bin/vlm-data analyze-category-balance
+
+# Build the analyzed 2.5% / 4x category-balanced selection.
+.venv/bin/vlm-data select --method category-balanced
+
 # Validate counts, captions, hashes, split isolation, and selections.
 .venv/bin/vlm-data validate
 ```
@@ -47,15 +53,18 @@ Without an editable install, every command is also available as
 | Official COCO archive acquisition | Ready | `data/raw/coco/` |
 | Canonical train/validation manifests | Ready | `data/interim/manifests/` |
 | Stable random 15k baseline | Ready | `data/processed/selections/` |
-| Category-balanced selection | Provisional algorithm | `data/processed/selections/` |
+| Category-balanced selection | Ready; train-count calibrated | `data/processed/selections/` |
 | Frozen CLIP visual diversity | Design decision pending | — |
 | Caption-semantic diversity | Design decision pending | — |
 | Quality-aware diversity | Design decision pending | — |
 | Five image preprocessing modes | Model phase | — |
 
-“Provisional” is deliberate: the proposal names category balancing but does not define its
-objective. The included least-covered-category algorithm is versioned and testable, but it
-should not become the experimental method until the team approves it.
+Category balancing now uses the approved square-root frequency targets. A reproducible train-only
+sensitivity report selects the 2.5% threshold and 4× safety cap under a 14%-of-budget target-mass
+guardrail. A hard generation check requires at least 5% of the selected images to differ from the
+paired random baseline; the real selection changes 6.32% without arbitrary padding swaps.
+The full method contract and placeholders for unresolved selectors are in
+[`data/processed/selections/README.md`](data/processed/selections/README.md).
 
 ## Data layout
 
@@ -81,6 +90,8 @@ and is verified before extraction.
 
 - Every training selection contains exactly 15,000 distinct `train2017` images.
 - All preprocessing comparisons reuse the same random selection manifest.
+- Category balancing starts from that exact random manifest and performs only the swaps needed to
+  meet its 36 boosted-category targets and verifies the 5% minimum-change requirement.
 - Validation uses every `val2017` image and all five reference captions.
 - Training samples one caption per image per epoch with a stateless deterministic function.
 - Validation images, captions, and fitted statistics never construct training inputs. Per the
@@ -89,6 +100,8 @@ and is verified before extraction.
 - Raw files are never rewritten by preparation code.
 
 See `docs/data-foundation.md` for the schema, flow, open design decisions, and leakage policy.
+The literature review and proposed starting values for those decisions are recorded in
+`docs/background-research.md`.
 
 ## Tests
 

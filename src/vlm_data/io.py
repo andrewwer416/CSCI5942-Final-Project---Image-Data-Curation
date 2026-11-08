@@ -29,6 +29,19 @@ def write_json_atomic(path: Path, value: Mapping[str, Any]) -> None:
     os.replace(temporary, path)
 
 
+def write_text_atomic(path: Path, value: str) -> None:
+    """Write UTF-8 text atomically, adding one final newline."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = value.rstrip("\n") + "\n"
+    with tempfile.NamedTemporaryFile(
+        "w", encoding="utf-8", dir=path.parent, delete=False
+    ) as handle:
+        temporary = Path(handle.name)
+        handle.write(payload)
+    os.replace(temporary, path)
+
+
 def write_jsonl_atomic(
     path: Path, rows: Iterable[Mapping[str, Any]]
 ) -> tuple[int, str]:

@@ -10,6 +10,18 @@ captions_per_image = 5
 expected_train_images = 118287
 expected_val_images = 5000
 
+# Project hypothesis inspired by LVIS's square-root repeat-factor shape.
+# The exact values are calibrated by `vlm-data analyze-category-balance` from
+# train2017 counts; they are not universal constants from the literature.
+[category_balance]
+frequency_threshold = 0.025
+max_boost = 4.0
+threshold_candidates = [0.001, 0.0025, 0.005, 0.01, 0.02, 0.0225, 0.025, 0.03, 0.04, 0.05]
+max_boost_candidates = [2.0, 3.0, 4.0, 5.0, 6.0]
+max_extra_target_fraction = 0.14
+# Reject a category-balanced manifest rather than padding it with unrelated swaps.
+minimum_changed_fraction = 0.05
+
 [paths]
 raw_root = "data/raw/coco"
 download_cache = "data/raw/coco/downloads"

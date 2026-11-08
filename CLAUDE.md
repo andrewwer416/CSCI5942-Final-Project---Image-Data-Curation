@@ -54,6 +54,8 @@ tests/                   Synthetic, offline test suite
 - Train only on `train2017`; evaluate on the held-out `val2017` split.
 - Every training selection has exactly 15,000 unique images.
 - The shared random selection is reused for every preprocessing-only comparison.
+- The category-balanced selection must replace at least 750 baseline images (5%); fail generation
+  rather than adding category-unrelated swaps to reach that floor.
 - Each canonical image record has five captions.
 - Training caption selection is deterministic in seed, epoch, and image ID.
 - Raw COCO files are immutable.
@@ -65,6 +67,8 @@ tests/                   Synthetic, offline test suite
 - Run `make test` after changing the data contract or algorithms.
 - Run `vlm-data validate` after regenerating manifests.
 - Version selection and feature-generation algorithms in metadata.
+- Re-run `make analyze-category-balance` before changing its threshold, cap, source, or budget.
+- Keep unresolved selection methods as documented placeholders until their decisions are approved.
 - Keep paths relative to the project or data root in persisted artifacts.
 - Label proposal gaps as decisions instead of selecting silent defaults.
 
@@ -82,11 +86,11 @@ tests/                   Synthetic, offline test suite
 - Modify anything under `data/raw/` during preparation.
 - Fit statistics or choose examples using `val2017`.
 - Regenerate a selection without recording its seed and source hash.
-- Treat the provisional category-balancing algorithm as an approved study method.
-- overwrite a user's generated artifact without an atomic write.
+- Treat an uncalibrated category-balance override as an approved study method.
+- Overwrite a user's generated artifact without an atomic write.
 
 ## Notes
 
-The proposal does not fully specify several advanced selection and preprocessing methods. Their
-open choices are listed in `docs/data-foundation.md`. Resolve and pin them before generating
-expensive embeddings or starting training runs.
+The proposal does not fully specify several advanced selection and preprocessing methods. Category
+balancing is resolved; the remaining open choices are listed in `docs/data-foundation.md`. Resolve
+and pin them before generating expensive embeddings or starting training runs.

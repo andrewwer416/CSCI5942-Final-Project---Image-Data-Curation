@@ -88,7 +88,13 @@ class ManifestPipelineTests(unittest.TestCase):
 
     def test_category_balanced_includes_rare_category(self) -> None:
         records = self._build()
-        selected = select_category_balanced(records, budget=2, seed=5942)
+        selected = select_category_balanced(
+            records,
+            budget=2,
+            seed=5942,
+            frequency_threshold=0.5,
+            max_boost=3.0,
+        )
         categories = {category for record in selected for category in record.category_ids}
         self.assertEqual(categories, {1, 2})
 

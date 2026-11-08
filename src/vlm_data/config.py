@@ -18,6 +18,16 @@ class DownloadArtifact:
 
 
 @dataclass(frozen=True)
+class CategoryBalanceConfig:
+    frequency_threshold: float
+    max_boost: float
+    threshold_candidates: tuple[float, ...]
+    max_boost_candidates: tuple[float, ...]
+    max_extra_target_fraction: float
+    minimum_changed_fraction: float
+
+
+@dataclass(frozen=True)
 class DataConfig:
     project_root: Path
     schema_version: int
@@ -40,6 +50,7 @@ class DataConfig:
     train_instances: Path
     val_captions: Path
     val_instances: Path
+    category_balance: CategoryBalanceConfig
     downloads: dict[str, DownloadArtifact]
 
     @property
@@ -72,6 +83,7 @@ def load_config(path: str | Path = "configs/data.toml") -> DataConfig:
     experiment = raw["experiment"]
     paths = raw["paths"]
     annotations = raw["annotations"]
+    category_balance = raw["category_balance"]
 
     annotations_dir = _resolve(project_root, paths["annotations_dir"])
     downloads = {
@@ -108,5 +120,21 @@ def load_config(path: str | Path = "configs/data.toml") -> DataConfig:
         train_instances=annotations_dir / annotations["train_instances"],
         val_captions=annotations_dir / annotations["val_captions"],
         val_instances=annotations_dir / annotations["val_instances"],
+        category_balance=CategoryBalanceConfig(
+            frequency_threshold=float(category_balance["frequency_threshold"]),
+            max_boost=float(category_balance["max_boost"]),
+            threshold_candidates=tuple(
+                float(value) for value in category_balance["threshold_candidates"]
+            ),
+            max_boost_candidates=tuple(
+                float(value) for value in category_balance["max_boost_candidates"]
+            ),
+            max_extra_target_fraction=float(
+                category_balance["max_extra_target_fraction"]
+            ),
+            minimum_changed_fraction=float(
+                category_balance["minimum_changed_fraction"]
+            ),
+        ),
         downloads=downloads,
     )

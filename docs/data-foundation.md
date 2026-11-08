@@ -59,6 +59,13 @@ manifests with one reader. Their metadata additionally records:
 The random baseline ranks each image by a stable keyed hash. It does not depend on source row order
 or Python's evolving pseudo-random sampling implementation.
 
+The category-balanced manifest is paired with that exact random baseline. At least 5% of its 15,000
+selected IDs must be replacements, so at least 750 category-balanced IDs must be absent from the
+random set. This is a hard generation requirement: the command fails before writing a manifest if
+the target-driven swaps do not clear the floor, and it never pads the result with unrelated swaps.
+The current calibrated selection replaces 948 images (6.32%). The complete operational definition
+and future-method placeholders live in `data/processed/selections/README.md`.
+
 ## Caption sampling
 
 Training chooses one of an image's five captions from a hash of `(seed, epoch, image_id)`. The
@@ -84,12 +91,20 @@ record model revisions before creating derived artifacts:
 1. Frozen CLIP checkpoint, preprocessing, embedding precision, and revision.
 2. Visual-diversity objective and scalable selection algorithm.
 3. Caption embedding model and how five captions become one image-level representation.
-4. Category-balance objective and treatment of multi-label images.
-5. Blur, visual-complexity, and resolution metrics plus quality/diversity weighting.
-6. Crop scale/aspect ranges, resize interpolation, padding value, and color-normalization formula.
-7. How the frozen 512-dimensional CLIP vector is fused into the randomly initialized VLM.
-8. Training, caption, data-loader, and weight-initialization seed policy.
+4. Blur, visual-complexity, and resolution metrics plus quality/diversity weighting.
+5. Crop scale/aspect ranges, resize interpolation, padding value, and color-normalization formula.
+6. How the frozen 512-dimensional CLIP vector is fused into the randomly initialized VLM.
+7. Training, caption, data-loader, and weight-initialization seed policy.
 
 Until those choices are approved, generated embeddings and quality scores would look reproducible
-while encoding arbitrary scientific decisions. The current foundation therefore stops at the shared
-random baseline and a clearly labeled provisional category-balancing implementation.
+while encoding arbitrary scientific decisions. The current foundation therefore implements only the
+shared random baseline and the separately calibrated category-balancing method.
+
+See `background-research.md` for the literature review, concrete starting values, and train-only
+calibration checks proposed for these decisions.
+
+The category-balance decision is now resolved separately: `vlm-data analyze-category-balance`
+evaluates its parameter grid from canonical `train2017`, verifies the real multi-label selection,
+and writes SHA-pinned reports under `reports/data/`. The checked-in values are a 2.5% prevalence
+threshold and an empirically inactive 4× safety cap, selected under a 14%-of-budget target-mass
+guardrail and verified against a 5% minimum-change requirement.
