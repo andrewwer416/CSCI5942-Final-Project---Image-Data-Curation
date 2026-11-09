@@ -56,21 +56,29 @@ resolving the remaining selection and preprocessing methods.
 | Captions retained per image | 5 | 5 |
 | Synthetic tests | 84 passing in the locked environment | All passing |
 
-## Training choices to review
+## Approved training choices
+
+Approved robustness addendum: run the D1×P1 baseline with model seeds 5942, 5943, and
+5944, holding selection, caption sampling, and data-order seeds fixed. The extra two
+runs supplement the nine-run primary matrix. Work ownership remains deferred.
 
 See `docs/pr-1-consolidation.md` for proposed answers to PR #1, the distinction between
-confirmed selector decisions and pending training choices, and the artifact handoff.
+confirmed decisions and remaining design gaps, and the artifact handoff.
 The local consolidation adds explicit model seeds, source hashes, selection validation,
 and protection against overwriting completed runs. No full study training was launched.
 
-The proposal does not specify these. They affect every run, so please raise any disagreement before
-the first full-length run.
+Andrew approved these training defaults, including the bidirectional text tower,
+constant learning rate without warmup/decay, and zero dropout. The actual study
+batch size remains subject to measurement at 640×640 on Alpine and must be held
+fixed across compared arms.
 
 | Choice | Value | Reason |
 |---|---|---|
 | Loss | Symmetric contrastive (as in CLIP), learnable temperature | Standard for image-text retrieval |
 | Tokenizer | Own vocabulary from all train2017 captions, words seen at least 5 times (10,186 entries) | Needs no pretrained resources, never sees val2017, and is identical across selections |
 | Optimizer | AdamW, lr 1e-4, weight decay 0.01 | Starting point; not tuned yet |
+| Learning-rate schedule | Constant; no warmup or decay | Approved project setting |
+| Dropout | 0.0 | Approved project setting |
 | Pixel scaling for P1 | Fixed scale to [-1, 1] | Not fitted to data, so P4 remains a distinct configuration |
 | Text pooling | Output at the `<eos>` position | Same as CLIP |
 | Image encoder width | 768 dimensions, 12 heads | Standard ViT-B size |

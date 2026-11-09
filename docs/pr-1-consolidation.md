@@ -4,16 +4,19 @@ PR: https://github.com/andrewwer416/CSCI5942-Final-Project---Image-Data-Curation
 
 The local integration branch combines Bill's training work with Andrew's completed
 caption-semantic method. Makefile and STATUS conflicts preserve both contributions.
-No GitHub review/comment or upstream merge has been submitted by this consolidation.
+The responses and approvals below accompany the consolidated implementation;
+the linked PR records its publication and merge state.
 
 ## 1. Training defaults
 
-Recommend retaining the PR defaults for the first standardized baseline: symmetric
+Andrew approved the PR defaults for the first standardized baseline: symmetric
 contrastive loss with learned temperature; from-scratch ViT-B/16 and 12-layer text
 Transformer; train-only word vocabulary shared across selections; EOS pooling;
 AdamW at 1e-4 with weight decay 0.01; fixed [-1,1] P1 pixel scaling; GPU AMP.
-These are proposed implementation choices, not all previously user-approved values
-or literature-derived optimal settings. Approve before full-length training.
+The approval also includes the bidirectional text tower, constant learning rate
+without warmup/decay, zero dropout, and the remaining model/tokenizer defaults.
+These are approved project settings, not literature-derived optimal values.
+The CLI batch-size default of 32 is provisional; measure the study batch size on Alpine.
 
 The proposal fixes 15,000 images, 40 epochs, 640x640, and the text dimensions used
 by its compute estimate. Measure a viable batch size on Alpine and hold the actual
@@ -22,7 +25,7 @@ provide the same cross-example negatives as a larger contrastive batch.
 
 The text tower here is bidirectional with padding masks and EOS pooling; it is
 not an exact architectural reproduction of CLIP's text tower. The proposal does
-not require causal masking. Recommend retaining this architecture consistently
+not require causal masking. Retain this approved architecture consistently
 and describing it accurately. A from-scratch word vocabulary is also distinct
 from CLIP's pretrained tokenizer.
 
@@ -48,9 +51,9 @@ available. These changes do not launch training or change the experiment budget.
 
 ## 3. Extra seeds
 
-Recommend two additional baseline model initializations (5943 and 5944), retaining
+Andrew approved two additional baseline model initializations (5943 and 5944), retaining
 the same selection, caption schedule, and data order to isolate initialization
-variation. This is a robustness addendum requiring compute-budget approval:
+variation. This is an approved robustness addendum:
 the proposal says one baseline run in the nine-run primary matrix.
 
 Three baseline runs provide a descriptive spread, not precise uncertainty for
@@ -65,7 +68,7 @@ Confirmed directly with Andrew: category balancing and its real-data minimum
 empirical k sweep and duplicate audit; frozen MPNet and five-caption aggregation;
 semantic acceptance plus descriptive category/language/cross-view audits without
 category quotas. Quality-aware selection, detailed P2-P4 settings, P5 fusion,
-and the new training defaults have not all been approved.
+remain unapproved. The training defaults and two extra baseline model seeds are approved.
 
 Primary sources were consulted for the relevant representation and selection
 choices, and source links appear in the method documents. Do not claim that every
@@ -77,6 +80,9 @@ train-calibrated measurements, not universal constants supported by papers.
 P2-P5 and quality proposals still need method-specific review before implementation.
 
 ## 5. Proposed division of work
+
+Andrew deferred the work-split question; no new assignment or approval is needed now.
+The proposal below remains a suggestion, not a confirmed allocation.
 
 Pending Andrew's confirmation: Bill owns P2-P4 implementation and Alpine job/
 throughput/resume scripts; Andrew owns D5 quality-aware selection, P5 design/fusion,
