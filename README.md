@@ -128,7 +128,9 @@ data/
 reports/data/                    # Machine-readable validation reports
 ```
 
-Generated data, model artifacts, and reports are ignored by Git. Each manifest has a sibling
+The four approved 15k selection manifests and metadata sidecars are tracked in Git for direct
+collaborator handoff. Images, canonical/intermediate data, embeddings, model artifacts, reports,
+and experimental selections remain ignored. Each manifest has a sibling
 `.meta.json` file containing source and output SHA-256 hashes, counts, method version, and seed.
 COCO's official download page currently serves archive links over HTTP, so every configured archive
 is pinned to a known byte count and SHA-256 from the

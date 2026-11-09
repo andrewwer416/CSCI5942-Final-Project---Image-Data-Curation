@@ -49,6 +49,6 @@ and metadata. Reports include selected IDs, exact coverage, replacement counts,
 outlier count, sparse uncovered fraction, category incidence, object density,
 gain evaluations, timings, and artifact/config/implementation hashes.
 
-All image data, weights, vectors, graphs, reports, and manifests remain local
-ignored artifacts. The tracked implementation and this result record make them
-regenerable. No validation images or captions chose the selection parameters.
+The approved selection manifest and sidecar are tracked in Git for collaborator handoff.
+Image data, weights, vectors, graphs, and reports remain ignored. The tracked implementation
+makes them regenerable. No validation images or captions chose the selection parameters.

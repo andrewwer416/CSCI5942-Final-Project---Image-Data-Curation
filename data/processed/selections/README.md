@@ -1,8 +1,10 @@
 # Training-Set Selections
 
 This directory contains the exact 15,000-image `train2017` manifests used by selection experiments.
-The generated JSONL manifests and metadata sidecars are ignored by Git; this README is tracked so
-the selection contract remains visible even when the local data artifacts are absent.
+The four approved JSONL manifests and metadata sidecars are tracked in Git so collaborators
+can train on the exact same selections. Intermediate data and experimental selections stay ignored.
+Treat these manifests as fixed experiment inputs: any approved regeneration must include a reviewed
+metadata/hash change, rather than silently replacing an existing study set.
 
 ## Shared contract
 

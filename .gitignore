@@ -35,6 +35,15 @@ checkpoints/
 !data/processed/
 !data/processed/selections/
 !data/processed/selections/README.md
+# Track the exact approved study selections; experimental outputs stay ignored.
+!data/processed/selections/random_seed5942_n15000.jsonl
+!data/processed/selections/random_seed5942_n15000.meta.json
+!data/processed/selections/category_balanced_t0p025_cap4_seed5942_n15000.jsonl
+!data/processed/selections/category_balanced_t0p025_cap4_seed5942_n15000.meta.json
+!data/processed/selections/visual_diversity_k50_dup0p99_seed5942_n15000.jsonl
+!data/processed/selections/visual_diversity_k50_dup0p99_seed5942_n15000.meta.json
+!data/processed/selections/caption_semantic_k50_seed5942_n15000.jsonl
+!data/processed/selections/caption_semantic_k50_seed5942_n15000.meta.json
 !reports/README.md
 
 # Download remnants

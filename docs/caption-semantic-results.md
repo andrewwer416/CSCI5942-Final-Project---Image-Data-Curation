@@ -99,4 +99,5 @@ The selection passes canonical record, caption, hash, and split validation.
 provenance; `caption-k{k}.json` records every candidate's selected IDs.
 `caption-diagnostics.json` records all phrase/category counts, outliers, dispersion,
 redundancy, cross-view measurements, source/selection hashes, and tagger hashes.
-Generated artifacts remain ignored by Git. The tracked code and lock file recreate them.
+The approved selection manifest and sidecar are tracked in Git. Embeddings, graphs, and
+diagnostic reports remain ignored; the tracked code and lock file recreate them.

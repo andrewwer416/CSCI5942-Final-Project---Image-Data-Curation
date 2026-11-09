@@ -1,12 +1,13 @@
 # Data
 
-Generated and downloaded data lives here but is not committed.
+Downloaded data and intermediate artifacts live here and are not committed. The four approved
+study selection manifests and their metadata are tracked so collaborators use the exact same sets.
 
 | Directory | Policy |
 |---|---|
 | `raw/coco/` | Immutable official archives and extracted files |
 | `interim/manifests/` | Rebuildable canonical JSONL and metadata |
-| `processed/selections/` | Versioned experiment selections, metadata, and the tracked method contract |
+| `processed/selections/` | Four tracked approved selections and sidecars; experimental outputs ignored |
 
 Use `vlm-data download`, `vlm-data prepare`, and `vlm-data select` rather than placing files by hand.
 Run `vlm-data validate --check-files` after downloading image archives. See

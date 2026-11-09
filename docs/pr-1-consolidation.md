@@ -92,12 +92,13 @@ normalization, evaluation-transform, and seed contracts before full study runs.
 
 ## Artifact request
 
-The visual manifest and sidecar are available locally, as are D4's manifest and
-sidecar. Bundle the four available selections with SHA-256 checksums using
+The four approved selection manifests and sidecars are now tracked under
+`data/processed/selections/`; Bill can obtain them directly through Git.
+An optional bundle of the four selections with SHA-256 checksums is generated using
 `PYTHONPATH=src pixi run python scripts/package_selections.py`. The generated ZIP
 is ignored and can be attached/transferred to the collaborator or Alpine using
 the team's chosen channel. It contains manifests and metadata, not COCO images
-or model weights. No transfer destination was provided and nothing was uploaded.
+or model weights. The optional ZIP has not been uploaded separately.
 
 ## Verification
 
