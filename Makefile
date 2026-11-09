@@ -7,7 +7,7 @@ VISUAL_WORKERS ?= 8
 
 .PHONY: test fetch-annotations prepare analyze-category-balance baseline category-balanced \
 	visual-stack-smoke visual-benchmark visual-embeddings visual-neighbors \
-	caption-semantic caption-diagnostics validate
+	caption-semantic caption-diagnostics validate smoke-train
 
 test:
 	PYTHONPATH=src $(PYTHON) -m unittest discover -s tests -v
@@ -49,3 +49,9 @@ caption-diagnostics:
 
 validate:
 	PYTHONPATH=src $(PYTHON) -m vlm_data --config $(CONFIG) validate
+
+smoke-train:
+	PYTHONPATH=src $(PYTHON) -m vlm_train.train --config $(CONFIG) \
+		--selection data/processed/selections/random_seed5942_n15000.jsonl \
+		--image-root data/raw/coco_smoke --limit 512 --val-limit 128 \
+		--epochs 1 --image-size 224 --batch-size 8 --output-dir artifacts/smoke

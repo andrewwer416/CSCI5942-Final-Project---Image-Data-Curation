@@ -11,7 +11,8 @@ live in `configs/data.toml`, and the nine initial runs are enumerated in
 
 ## Quick start
 
-The data tools use only the Python 3.11 standard library.
+The data tools use only the Python 3.11 standard library. Training also needs PyTorch, Pillow, and
+NumPy: `.venv/bin/python -m pip install -e ".[train]"`.
 
 ```bash
 python3 -m venv .venv
@@ -75,7 +76,37 @@ the selection README.
 | Frozen CLIP visual diversity | Calibrated: k=50, duplicate cutoff 0.99 | `data/processed/selections/` |
 | Caption-semantic diversity | Calibrated frozen MPNet: k=50 | `data/processed/selections/` |
 | Quality-aware diversity | Design decision pending | — |
-| Five image preprocessing modes | Model phase | — |
+| Standard RGB preprocessing (P1) | Ready | `src/vlm_train/data.py` |
+| Other four preprocessing modes (P2–P5) | Not started | — |
+| VLM model, training loop, Recall@K | Ready; smoke-tested only | `artifacts/<run>/` |
+
+## Training
+
+`src/vlm_train/` trains one selection/preprocessing configuration and reports Recall@K on val2017.
+Only P1 preprocessing exists so far. Progress, smoke-test results, and the training choices awaiting
+review are in `STATUS.md`.
+
+The smoke test uses a small image sample kept apart from the official files
+(`data/raw/coco_smoke/`, Git-ignored). After `prepare` and `select --method random`:
+
+```bash
+mkdir -p data/raw/coco_smoke/train2017 data/raw/coco_smoke/val2017
+head -n 512 data/processed/selections/random_seed5942_n15000.jsonl | grep -o '"file_name":"[^"]*"' \
+  | cut -d'"' -f4 | xargs -P 8 -I{} wget -q -nc -P data/raw/coco_smoke/train2017 http://images.cocodataset.org/train2017/{}
+head -n 128 data/interim/manifests/val2017.jsonl | grep -o '"file_name":"[^"]*"' \
+  | cut -d'"' -f4 | xargs -P 8 -I{} wget -q -nc -P data/raw/coco_smoke/val2017 http://images.cocodataset.org/val2017/{}
+make smoke-train
+```
+
+A full run uses the official image folder and the configured 640 px and 40 epochs:
+
+```bash
+PYTHONPATH=src python3 -m vlm_train.train \
+  --selection data/processed/selections/random_seed5942_n15000.jsonl \
+  --output-dir artifacts/random__standard_rgb --batch-size <N> --save-checkpoint
+```
+
+Each run writes `run_config.json`, `vocabulary.json`, and `metrics.jsonl` to its output directory.
 
 Category balancing now uses the approved square-root frequency targets. A reproducible train-only
 sensitivity report selects the 2.5% threshold and 4× safety cap under a 14%-of-budget target-mass
@@ -127,7 +158,8 @@ The literature review and proposed starting values for those decisions are recor
 make test
 ```
 
-The tests use synthetic COCO annotations; they do not download data or require a GPU.
+The tests use synthetic data; they do not download anything or require a GPU. The training-component
+tests are skipped when PyTorch is not installed.
 
 ## Dataset terms
 
