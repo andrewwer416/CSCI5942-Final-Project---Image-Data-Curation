@@ -482,7 +482,7 @@ def render_calibration_markdown(report: Mapping[str, Any]) -> str:
 
     recommendation = report.get("k_recommendation", report)
     lines = [
-        "# Visual-diversity calibration",
+        f"# {report.get('title', 'Visual-diversity calibration')}",
         "",
         f"- Recommended neighbor count: `{recommendation['recommended_k']}`",
         f"- Best mean exact coverage: `{recommendation['best_mean_coverage']:.8f}`",
