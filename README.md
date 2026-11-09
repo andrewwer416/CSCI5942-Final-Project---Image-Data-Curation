@@ -57,6 +57,8 @@ make visual-stack-smoke
 make visual-benchmark
 make visual-embeddings VISUAL_PRECISION=amp_fp16 VISUAL_BATCH_SIZE=256
 make visual-neighbors
+make caption-semantic
+make caption-diagnostics
 ```
 
 The measured RTX 2080 configuration uses permanently frozen OpenCLIP, AMP-FP16 inference,
@@ -71,7 +73,7 @@ the selection README.
 | Stable random 15k baseline | Ready | `data/processed/selections/` |
 | Category-balanced selection | Ready; train-count calibrated | `data/processed/selections/` |
 | Frozen CLIP visual diversity | Calibrated: k=50, duplicate cutoff 0.99 | `data/processed/selections/` |
-| Caption-semantic diversity | Design decision pending | — |
+| Caption-semantic diversity | Calibrated frozen MPNet: k=50 | `data/processed/selections/` |
 | Quality-aware diversity | Design decision pending | — |
 | Five image preprocessing modes | Model phase | — |
 

@@ -346,8 +346,10 @@ Use the pinned `sentence-transformers/all-mpnet-base-v2` checkpoint:
 3. Compute their arithmetic mean.
 4. L2-normalize the resulting image-level caption vector.
 
-Then apply the same sparse facility-location objective and the same `k = 100` neighbor-graph
-construction used for visual diversity. Holding the optimizer constant makes the comparison answer
+The implemented method applies the same sparse facility-location objective and empirical
+`k in {50, 100, 200, 400}` calibration used for visual diversity; both selected `k=50`.
+See [the real caption calibration results](caption-semantic-results.md).
+Holding the optimizer constant makes the comparison answer
 a cleaner question: does diversity in caption space select better training data than diversity in
 visual CLIP space?
 

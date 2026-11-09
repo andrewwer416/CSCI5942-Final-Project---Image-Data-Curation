@@ -21,7 +21,7 @@ Every implemented selection must:
 | Random baseline | Implemented | `random_seed5942_n15000.jsonl` |
 | Category balanced | Implemented | `category_balanced_t0p025_cap4_seed5942_n15000.jsonl` |
 | Visual diversity | Implemented; train-only calibrated | `visual_diversity_k50_dup0p99_seed5942_n15000.jsonl` |
-| Caption-semantic diversity | Placeholder — design pending | Not generated |
+| Caption-semantic diversity | Implemented; train-only calibrated | `caption_semantic_k50_seed5942_n15000.jsonl` |
 | Quality-aware diversity | Placeholder — design pending | Not generated |
 
 ## Random baseline
@@ -321,12 +321,29 @@ four-candidate calibration, and canonical-manifest validation have passed. Repro
 with `scripts/audit_visual_pairs.py` and the selection with `scripts/calibrate_visual.py` in
 the locked Pixi environment. The outlier cap is active at 300 selected images.
 
-### Caption-semantic diversity — TODO
+### Caption-semantic diversity
 
-- Decide and pin the text encoder and caption-aggregation rule.
-- Define the semantic-diversity objective and scalable optimizer.
-- Define deterministic tie-breaking and category-retention audits.
-- Do not generate a manifest yet.
+The approved method uses frozen `sentence-transformers/all-mpnet-base-v2` at revision
+`e8c3b32edf5434bc2275fc9bab85f82640a19130`. Independently normalize each of five caption
+vectors, average them, then normalize the image-level mean. Reuse exact GPU cosine neighbors,
+sparse facility coverage, lazy greedy, and the train-only k sweep / acceptance rule.
+
+Text duplicates reduce marginal gain without excluding images. Semantic outliers and category
+allocation are descriptive audits without quotas. See the
+[full method and diagnostic contract](../../../docs/caption-semantic-selection.md).
+
+Run `make caption-semantic` and `make caption-diagnostics` in the locked Pixi environment.
+The accepted manifest is generated only after the common exact coverage, distance, and 5%
+replacement gates pass. Per-category coverage is a proxy for representation demand, not a
+causal estimate of how many training examples a retrieval model needs.
+
+The real sweep selected **k=50**. All four candidates passed; the accepted set replaces
+**13,116 images (87.44%)** from random. Mean exact caption distance improves from `0.120189`
+to `0.097451`; p95 improves from `0.281780` to `0.209511`. No source image is uncovered by
+the accepted sparse graph. All 591,435 captions were encoded without truncation.
+The [results and diagnostic interpretation](../../../docs/caption-semantic-results.md)
+record category reallocations, modest visual cross-view gains, mixed lexical-proxy changes,
+and the observed 7.32% extreme semantic-outlier share.
 
 ### Quality-aware diversity — TODO
 

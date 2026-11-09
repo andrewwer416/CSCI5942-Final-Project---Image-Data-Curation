@@ -164,6 +164,7 @@ def build_exact_gpu_neighbor_artifact(
     query_batch_size: int,
     gpu_device: int = 0,
     overwrite: bool = False,
+    embedding_loader=None,
 ) -> dict[str, Any]:
     """Run one exact max-k FAISS search and atomically commit its graph.
 
@@ -185,7 +186,8 @@ def build_exact_gpu_neighbor_artifact(
     except ImportError as error:  # pragma: no cover - exercised in the GPU environment.
         raise RuntimeError("Exact GPU neighbor search requires numpy and faiss-gpu") from error
 
-    embedding_metadata, embeddings, source_image_ids = load_embedding_artifact(
+    loader = load_embedding_artifact if embedding_loader is None else embedding_loader
+    embedding_metadata, embeddings, source_image_ids = loader(
         embedding_metadata_path,
         source_manifest=source_manifest,
         mmap_mode="r",
@@ -279,7 +281,10 @@ def build_exact_gpu_neighbor_artifact(
         embedding_metadata_sha256 = sha256_file(Path(embedding_metadata_path))
         metadata: dict[str, Any] = {
             "schema_version": 1,
-            "kind": "exact_clip_neighbor_graph",
+            "kind": (
+                "exact_clip_neighbor_graph" if embedding_loader is None
+                else "exact_embedding_neighbor_graph"
+            ),
             "algorithm_version": NEIGHBOR_ALGORITHM_VERSION,
             "source": {
                 "embedding_metadata": _project_relative(
@@ -358,7 +363,7 @@ def load_neighbor_artifact(
     metadata_path = Path(metadata_path)
     with metadata_path.open("r", encoding="utf-8") as handle:
         metadata = json.load(handle)
-    if metadata.get("kind") != "exact_clip_neighbor_graph":
+    if metadata.get("kind") not in {"exact_clip_neighbor_graph", "exact_embedding_neighbor_graph"}:
         raise RuntimeError(f"Unexpected neighbor artifact kind in {metadata_path}")
     if metadata.get("algorithm_version") != NEIGHBOR_ALGORITHM_VERSION:
         raise RuntimeError("Unsupported neighbor algorithm version")

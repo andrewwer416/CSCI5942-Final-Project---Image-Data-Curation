@@ -17,7 +17,8 @@ Resolve and implement the train-only data-selection methods before model impleme
 | Category-balance analysis | Complete | Real train-count grid recommends 2.5% threshold / 4× cap |
 | Category-balanced selection | Complete | 15,000 unique images; 948 swaps (6.32%), 93.68% retained |
 | Visual-diversity selection | Complete | k=50, duplicate cutoff 0.99; 13,073 replacements (87.153%) |
-| Other advanced methods | Pending | Caption-semantic and quality-aware decisions remain placeholders |
+| Caption-semantic selection | Complete | Frozen MPNet, k=50; 13,116 replacements (87.44%) |
+| Quality-aware selection | Pending | Design remains a placeholder |
 
 ## Foundation progress
 
@@ -43,17 +44,17 @@ Resolve and implement the train-only data-selection methods before model impleme
 | Category-balanced images | 15,000 unique | 15,000 unique |
 | Validation images | 5,000 | 5,000 |
 | Captions retained per image | 5 | 5 |
-| Synthetic tests | 62 passing in the visual environment | All passing |
+| Synthetic tests | 65 passing in the locked GPU environment | All passing |
 
 ## Blockers
 
 - COCO validation images remain deferred; they are not needed for train-only selection calibration.
-- Caption-semantic and quality-aware algorithms are not specified by the proposal.
+- Quality-aware selection remains an unresolved proposal gap.
 
 ## Next steps
 
-1. Review the recorded visual calibration and duplicate-audit results.
-2. Resolve caption-semantic diversity next.
+1. Review the recorded visual and caption-semantic calibration and diagnostic results.
+2. Resolve quality-aware selection next.
 3. Download validation images when model evaluation begins.
 
 ## Recent completions
@@ -73,6 +74,11 @@ Resolve and implement the train-only data-selection methods before model impleme
 - Completed all 118,287 frozen image embeddings and exact top-400 GPU neighbors with verified
   artifact hashes. The train-only benchmark selected AMP-FP16 / batch 256: 543.97 images/s,
   mean cosine drift 0.000002479, and top-50 overlap 99.785% against FP32.
+- Completed frozen MPNet encoding of 591,435 captions without truncation, calibrated k=50,
+  generated the caption-semantic 15k set, and passed all acceptance and canonical validation gates.
+- Added full category allocation, language-proxy, caption agreement, redundancy, semantic-outlier,
+  and visual cross-view diagnostics. The observed extreme-tail share is 7.32%, with no quota.
+- Recorded the real caption sweep and tradeoffs in `docs/caption-semantic-results.md`.
 
 ### 2026-11-07
 

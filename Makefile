@@ -6,7 +6,8 @@ VISUAL_BATCH_SIZE ?= 256
 VISUAL_WORKERS ?= 8
 
 .PHONY: test fetch-annotations prepare analyze-category-balance baseline category-balanced \
-	visual-stack-smoke visual-benchmark visual-embeddings visual-neighbors validate
+	visual-stack-smoke visual-benchmark visual-embeddings visual-neighbors \
+	caption-semantic caption-diagnostics validate
 
 test:
 	PYTHONPATH=src $(PYTHON) -m unittest discover -s tests -v
@@ -39,6 +40,12 @@ visual-embeddings:
 
 visual-neighbors:
 	PYTHONPATH=src $(PIXI) run python -m vlm_data --config $(CONFIG) build-visual-neighbors
+
+caption-semantic:
+	PYTHONPATH=src $(PIXI) run python scripts/calibrate_caption.py
+
+caption-diagnostics:
+	PYTHONPATH=src $(PIXI) run python scripts/diagnose_caption.py
 
 validate:
 	PYTHONPATH=src $(PYTHON) -m vlm_data --config $(CONFIG) validate
