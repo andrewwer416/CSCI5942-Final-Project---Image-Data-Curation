@@ -49,13 +49,29 @@ Without an editable install, every command is also available as
 
 ## What is implemented
 
+Frozen visual features use the separate, locked GPU environment in `pixi.toml`/`pixi.lock`.
+With Pixi installed, run:
+
+```bash
+pixi install --locked
+make visual-stack-smoke
+make visual-benchmark
+make visual-embeddings VISUAL_PRECISION=amp_fp16 VISUAL_BATCH_SIZE=256
+make visual-neighbors
+```
+
+The measured RTX 2080 configuration uses permanently frozen OpenCLIP, AMP-FP16 inference,
+normalized float32 caches, and exact GPU FAISS `IndexFlatIP`. Existing complete caches are
+protected against accidental overwrite. Calibration and duplicate audit details are recorded in
+the selection README.
+
 | Capability | Status | Output |
 |---|---|---|
 | Official COCO archive acquisition | Ready | `data/raw/coco/` |
 | Canonical train/validation manifests | Ready | `data/interim/manifests/` |
 | Stable random 15k baseline | Ready | `data/processed/selections/` |
 | Category-balanced selection | Ready; train-count calibrated | `data/processed/selections/` |
-| Frozen CLIP visual diversity | Design decision pending | — |
+| Frozen CLIP visual diversity | Calibrated: k=50, duplicate cutoff 0.99 | `data/processed/selections/` |
 | Caption-semantic diversity | Design decision pending | — |
 | Quality-aware diversity | Design decision pending | — |
 | Standard RGB preprocessing (P1) | Ready | `src/vlm_train/data.py` |

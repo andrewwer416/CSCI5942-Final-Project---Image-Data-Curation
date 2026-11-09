@@ -16,6 +16,7 @@ from vlm_data.category_balance import (
 from vlm_data.coco import build_coco_manifest
 from vlm_data.config import DataConfig, load_config
 from vlm_data.download import download_components
+from vlm_data.io import write_json_atomic
 from vlm_data.manifest import read_manifest
 from vlm_data.selection import (
     CATEGORY_BALANCED_ALGORITHM_VERSION,
@@ -26,6 +27,12 @@ from vlm_data.selection import (
     write_selection,
 )
 from vlm_data.validation import validate_project
+from vlm_data.visual_benchmark import benchmark_frozen_clip_embeddings
+from vlm_data.visual_embeddings import (
+    embedding_artifact_paths,
+    generate_frozen_clip_embeddings,
+)
+from vlm_data.visual_neighbors import build_exact_gpu_neighbor_artifact
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -99,6 +106,54 @@ def _parser() -> argparse.ArgumentParser:
         "--skip-selection-simulation",
         action="store_true",
         help="Skip constructing the recommended and random 15k selections",
+    )
+
+    embed_visual = subcommands.add_parser(
+        "embed-visual",
+        help="Generate frozen OpenCLIP image embeddings for canonical train2017",
+    )
+    embed_visual.add_argument("--output", type=Path, help="Override embedding .npy path")
+    embed_visual.add_argument("--device", default="cuda:0")
+    embed_visual.add_argument(
+        "--inference-precision",
+        choices=["fp32", "amp_fp16"],
+        required=True,
+        help="Explicit inference precision; cached embeddings are always normalized float32",
+    )
+    embed_visual.add_argument("--batch-size", type=int, required=True)
+    embed_visual.add_argument("--num-workers", type=int, default=8)
+    embed_visual.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Replace an existing complete embedding artifact",
+    )
+
+    benchmark_visual = subcommands.add_parser(
+        "benchmark-visual",
+        help="Benchmark frozen CLIP FP32/AMP precision and batch size on train2017",
+    )
+    benchmark_visual.add_argument("--sample-size", type=int, default=512)
+    benchmark_visual.add_argument("--batch-sizes", type=int, nargs="+", default=[32, 64, 128, 256])
+    benchmark_visual.add_argument("--device", default="cuda:0")
+    benchmark_visual.add_argument("--json-output", type=Path)
+
+    neighbors = subcommands.add_parser(
+        "build-visual-neighbors",
+        help="Build an exact GPU FAISS maximum-k neighbor artifact",
+    )
+    neighbors.add_argument(
+        "--embedding-metadata",
+        type=Path,
+        help="Override frozen embedding metadata path",
+    )
+    neighbors.add_argument("--output", type=Path, help="Override similarity .npy path")
+    neighbors.add_argument("--max-k", type=int, help="Override maximum configured neighbor k")
+    neighbors.add_argument("--query-batch-size", type=int, default=1024)
+    neighbors.add_argument("--gpu-device", type=int, default=0)
+    neighbors.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Replace an existing complete neighbor artifact",
     )
 
     validate = subcommands.add_parser("validate", help="Validate canonical and selection manifests")
@@ -285,6 +340,84 @@ def _analyze_category_balance(config: DataConfig, args: argparse.Namespace) -> d
     }
 
 
+def _visual_embedding_path(config: DataConfig) -> Path:
+    return config.visual_artifact_dir / (
+        "openclip_vit_b16_datacomp_xl_s13b_b90k_train2017.npy"
+    )
+
+
+def _benchmark_visual(config: DataConfig, args: argparse.Namespace) -> dict[str, object]:
+    if not config.train_manifest.is_file():
+        raise FileNotFoundError(
+            f"Canonical training manifest is missing: {config.train_manifest}. Run prepare first."
+        )
+    report = benchmark_frozen_clip_embeddings(
+        source_manifest=config.train_manifest,
+        raw_root=config.raw_root,
+        sample_size=args.sample_size,
+        seed=config.seed,
+        batch_sizes=args.batch_sizes,
+        device=args.device,
+        checkpoint_cache=config.model_cache_dir,
+    )
+    output = args.json_output or config.report_dir / "visual-embedding-benchmark.json"
+    write_json_atomic(output, report)
+    return {
+        "algorithm_version": report["algorithm_version"],
+        "json_report": str(output),
+        "sample": report["sample"],
+        "guardrails": report["guardrails"],
+        "recommendation": report["recommendation"],
+        "failures": report["failures"],
+    }
+
+
+def _embed_visual(config: DataConfig, args: argparse.Namespace) -> dict[str, object]:
+    if not config.train_manifest.is_file():
+        raise FileNotFoundError(
+            f"Canonical training manifest is missing: {config.train_manifest}. Run prepare first."
+        )
+    output = args.output or _visual_embedding_path(config)
+    return generate_frozen_clip_embeddings(
+        source_manifest=config.train_manifest,
+        raw_root=config.raw_root,
+        embeddings_path=output,
+        project_root=config.project_root,
+        device=args.device,
+        inference_precision=args.inference_precision,
+        batch_size=args.batch_size,
+        num_workers=args.num_workers,
+        checkpoint_cache=config.model_cache_dir,
+        overwrite=args.overwrite,
+    )
+
+
+def _build_visual_neighbors(config: DataConfig, args: argparse.Namespace) -> dict[str, object]:
+    default_embedding_metadata = embedding_artifact_paths(
+        _visual_embedding_path(config)
+    ).metadata
+    embedding_metadata = args.embedding_metadata or default_embedding_metadata
+    if not embedding_metadata.is_file():
+        raise FileNotFoundError(
+            f"Frozen embedding metadata is missing: {embedding_metadata}. "
+            "Run embed-visual first."
+        )
+    max_k = max(config.visual_diversity.neighbor_k_candidates)
+    if args.max_k is not None:
+        max_k = args.max_k
+    output = args.output or config.visual_artifact_dir / f"clip_neighbors_k{max_k}.npy"
+    return build_exact_gpu_neighbor_artifact(
+        embedding_metadata_path=embedding_metadata,
+        source_manifest=config.train_manifest,
+        similarities_path=output,
+        project_root=config.project_root,
+        max_k=max_k,
+        query_batch_size=args.query_batch_size,
+        gpu_device=args.gpu_device,
+        overwrite=args.overwrite,
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = _parser()
     args = parser.parse_args(argv)
@@ -303,6 +436,12 @@ def main(argv: list[str] | None = None) -> int:
             result = _select(config, args)
         elif args.command == "analyze-category-balance":
             result = _analyze_category_balance(config, args)
+        elif args.command == "benchmark-visual":
+            result = _benchmark_visual(config, args)
+        elif args.command == "embed-visual":
+            result = _embed_visual(config, args)
+        elif args.command == "build-visual-neighbors":
+            result = _build_visual_neighbors(config, args)
         elif args.command == "validate":
             result = validate_project(config, check_files=args.check_files)
             print(json.dumps(result, indent=2, sort_keys=True))

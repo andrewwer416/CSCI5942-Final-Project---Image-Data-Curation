@@ -12,15 +12,16 @@ resolving the remaining selection and preprocessing methods.
 | Task | Status | Notes |
 |---|---|---|
 | Annotation acquisition | Complete | Official 2017 archive checksum verified |
-| Image acquisition | Partial | Local smoke sample only (512 train / 128 val); full archives not downloaded |
+| Image acquisition | Partial | Andrew's machine: all 118,287 train JPEGs, validation deferred. Bill's laptop: smoke sample only (512 train / 128 val). Alpine: not downloaded |
 | Canonical manifests | Complete | 118,287 train and 5,000 validation records |
 | Random baseline selection | Complete | 15,000 records, seed 5942, stable-hash algorithm |
 | Category-balance analysis | Complete | Real train-count grid recommends 2.5% threshold / 4× cap |
 | Category-balanced selection | Complete | 15,000 unique images; 948 swaps (6.32%), 93.68% retained |
-| Advanced selection methods (D3–D5) | Pending | Checkpoint/algorithm decisions required |
+| Visual-diversity selection | Complete | k=50, duplicate cutoff 0.99; 13,073 replacements (87.153%) |
+| Other advanced methods | Pending | Caption-semantic and quality-aware decisions remain placeholders |
 | Recall@K evaluation | Complete | Both retrieval directions; hand-checked in unit tests |
 | Standard RGB preprocessing (P1) | Complete | Direct resize, fixed scale to [-1, 1] |
-| Other preprocessing (P2–P5) | Not started | P5 also needs the CLIP checkpoint decision |
+| Other preprocessing (P2–P5) | Not started | P5 can reuse the pinned OpenCLIP checkpoint |
 | VLM model and training loop | Smoke-tested | Runs end to end on 4 GB; no full-length run yet |
 | Alpine job scripts | Not started | — |
 
@@ -34,6 +35,8 @@ resolving the remaining selection and preprocessing methods.
 - [x] Download COCO annotations and build canonical manifests.
 - [x] Generate and validate the shared 15,000-image baseline.
 - [x] Calibrate, generate, and validate the category-balanced 15,000-image selection.
+- [x] Download and checksum-verify all 118,287 `train2017` images.
+- [x] Pin and smoke-test the frozen OpenCLIP + GPU FAISS environment.
 - [x] Implement the model, training loop, P1 preprocessing, and Recall@K evaluation.
 - [x] Smoke-test training on a real image sample.
 - [ ] Resolve advanced selection and preprocessing decisions.
@@ -50,7 +53,7 @@ resolving the remaining selection and preprocessing methods.
 | Category-balanced images | 15,000 unique | 15,000 unique |
 | Validation images | 5,000 | 5,000 |
 | Captions retained per image | 5 | 5 |
-| Synthetic tests | 43 passing | All passing |
+| Synthetic tests | 80 passing | All passing |
 
 ## Training choices to review
 
@@ -73,17 +76,21 @@ d_ff=2048, L=77, 40 epochs.
 
 ## Blockers
 
-- COCO train/validation image archives are not downloaded on the training machine.
+- Full COCO train and validation images are not on Alpine; validation images are needed for model
+  evaluation.
+- The visual-diversity selection exists only on Andrew's machine and must be copied to the training
+  machine.
 - Alpine job scripts do not exist yet.
-- CLIP checkpoint and diversity/quality algorithms are not specified by the proposal.
+- Caption-semantic and quality-aware algorithms are not specified by the proposal.
 
 ## Next steps
 
-1. Review the training choices above.
+1. Review the training choices above and the recorded visual calibration and duplicate-audit results.
 2. Download the full COCO images on Alpine and run `vlm-data validate --check-files`.
 3. Run a short Alpine job to find a workable batch size at 640×640, then train the D1×P1 baseline.
-4. Implement P2–P4 preprocessing.
-5. Review the open decisions in `docs/data-foundation.md` before advanced feature generation (D3–D5, P5).
+4. Copy the visual-diversity selection and its metadata to Alpine.
+5. Implement P2–P4 preprocessing.
+6. Resolve caption-semantic diversity, then the quality-aware method and P5.
 
 ## Recent completions
 
@@ -120,6 +127,22 @@ learn. They are not experimental results.
 | Overfitting | 64 train images, 224 px, batch 8, 60 epochs | Mean training loss falls from 2.66 to 0.60 |
 | Full resolution | 640 px, batch 2 | Fits, 2.9 GB peak |
 | Full resolution | 640 px, batch 4 | Out of memory on this GPU |
+
+### 2026-11-08 (Andrew)
+
+- Pinned OpenCLIP `ViT-B-16` / `datacomp_xl_s13b_b90k` and its immutable weight provenance for
+  visual selection.
+- Chose global sparse facility-location selection, exact GPU FAISS neighbors, deterministic lazy
+  greedy optimization, duplicate grouping, bounded outlier enrichment, and a 5% difference floor.
+- Audited the local RTX 2080 / 30 GiB RAM machine and recorded the real-data calibration plan;
+  empirical `k` and duplicate cutoff remain under real-data calibration.
+- Downloaded the 19,336,861,798-byte `train2017` archive, verified its pinned SHA-256, extracted
+  exactly 118,287 JPEGs, and retained download provenance.
+- Locked and installed a CUDA 12.4 environment with frozen OpenCLIP and exact GPU FAISS; GPU and
+  full offline test smoke checks pass.
+- Completed all 118,287 frozen image embeddings and exact top-400 GPU neighbors with verified
+  artifact hashes. The train-only benchmark selected AMP-FP16 / batch 256: 543.97 images/s,
+  mean cosine drift 0.000002479, and top-50 overlap 99.785% against FP32.
 
 ### 2026-11-07
 
