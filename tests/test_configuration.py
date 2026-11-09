@@ -28,6 +28,26 @@ class ConfigurationTests(unittest.TestCase):
         self.assertIn(6.0, config.category_balance.max_boost_candidates)
         self.assertEqual(config.category_balance.max_extra_target_fraction, 0.14)
         self.assertEqual(config.category_balance.minimum_changed_fraction, 0.05)
+        self.assertEqual(config.visual_diversity.model_name, "ViT-B-16")
+        self.assertEqual(
+            config.visual_diversity.pretrained_tag, "datacomp_xl_s13b_b90k"
+        )
+        self.assertEqual(
+            config.visual_diversity.weight_revision,
+            "767e6d14be23c46e4f80af31e6b4e73f323e72f5",
+        )
+        self.assertEqual(
+            config.visual_diversity.neighbor_k_candidates, (50, 100, 200, 400)
+        )
+        self.assertEqual(
+            config.visual_diversity.duplicate_similarity_candidates,
+            (0.98, 0.99, 0.995),
+        )
+        self.assertEqual(config.visual_diversity.minimum_changed_fraction, 0.05)
+        self.assertEqual(
+            config.visual_artifact_dir, PROJECT_ROOT / "data/interim/visual"
+        )
+        self.assertEqual(config.model_cache_dir, PROJECT_ROOT / "data/raw/model-cache")
 
     def test_initial_matrix_has_one_shared_baseline_and_nine_runs(self) -> None:
         with (PROJECT_ROOT / "configs/experiment_matrix.toml").open("rb") as handle:

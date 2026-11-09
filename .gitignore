@@ -6,6 +6,8 @@ __pycache__/
 .coverage
 htmlcov/
 .venv/
+.pixi/
+.pixi-home/
 dist/
 build/
 *.egg-info/
