@@ -176,6 +176,8 @@ class FacilitySelectionResult:
     best_similarities: tuple[float, ...]
     outlier_count: int
     gain_evaluations: int
+    # Sum of the per-candidate modular bonus over the selection (0 without one).
+    modular_value: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -498,6 +500,7 @@ def select_facility_location_numpy(
     duplicate_groups: object | None = None,
     outlier_mask: object | None = None,
     max_outliers: int | None = None,
+    modular_gains: object | None = None,
 ) -> FacilitySelectionResult:
     """Scalable NumPy implementation of deterministic lazy greedy selection.
 
@@ -512,6 +515,13 @@ def select_facility_location_numpy(
     ``duplicate_groups`` is an integer array aligned with ``image_ids``.  Every
     nonnegative value identifies a group from which at most one member may be
     selected; negative values denote independent, ungrouped candidates.
+
+    ``modular_gains`` is an optional finite, nonnegative float array aligned with
+    ``image_ids``.  Candidate ``i`` then contributes ``coverage_gain(i) +
+    modular_gains[i]``.  A modular term never changes as the selection grows, so
+    cached heap keys remain valid upper bounds and the objective stays monotone
+    submodular.  ``marginal_gains`` report the combined gain; ``objective_value``
+    remains pure facility coverage and ``modular_value`` holds the bonus sum.
     """
 
     try:
@@ -585,6 +595,15 @@ def select_facility_location_numpy(
             raise ValueError("outlier_mask must have a boolean dtype")
         outliers = outlier_raw
 
+    if modular_gains is None:
+        bonus = np.zeros(count, dtype=np.float64)
+    else:
+        bonus = np.asarray(modular_gains, dtype=np.float64)
+        if bonus.ndim != 1 or bonus.size != count:
+            raise ValueError(f"modular_gains must have shape ({count},)")
+        if not bool(np.all(np.isfinite(bonus))) or bool(np.any(bonus < 0.0)):
+            raise ValueError("modular_gains must be finite and nonnegative")
+
     parsed_budget = _integer(budget, label="budget")
     if parsed_budget < 0:
         raise ValueError("budget must be nonnegative")
@@ -631,6 +650,7 @@ def select_facility_location_numpy(
     if edge_count:
         starts = indptr[:-1][nonempty]
         initial_gains[nonempty] = np.add.reduceat(similarities, starts, dtype=np.float64)
+    initial_gains += bonus
 
     heap: list[tuple[float, int, int]] = [
         (-float(initial_gains[candidate]), int(ids[candidate]), int(candidate))
@@ -658,10 +678,12 @@ def select_facility_location_numpy(
         start = int(indptr[candidate])
         stop = int(indptr[candidate + 1])
         if start == stop:
-            return 0.0
+            return float(bonus[candidate])
         demands = indices[start:stop]
         improvements = similarities[start:stop] - best_similarities[demands]
-        return float(np.maximum(improvements, 0.0).sum(dtype=np.float64))
+        return float(np.maximum(improvements, 0.0).sum(dtype=np.float64)) + float(
+            bonus[candidate]
+        )
 
     while len(selected) < parsed_budget:
         prune_infeasible()
@@ -701,6 +723,7 @@ def select_facility_location_numpy(
         best_similarities=tuple(float(value) for value in best_similarities),
         outlier_count=selected_outliers,
         gain_evaluations=gain_evaluations,
+        modular_value=float(bonus[selected].sum(dtype=np.float64)) if selected else 0.0,
     )
 
 

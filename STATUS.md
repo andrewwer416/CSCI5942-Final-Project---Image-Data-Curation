@@ -1,6 +1,6 @@
 # Project Status
 
-**Last Updated**: 2026-11-08
+**Last Updated**: 2026-11-22
 
 ## Current focus
 
@@ -19,7 +19,7 @@ resolving the remaining selection and preprocessing methods.
 | Category-balanced selection | Complete | 15,000 unique images; 948 swaps (6.32%), 93.68% retained |
 | Visual-diversity selection | Complete | k=50, duplicate cutoff 0.99; 13,073 replacements (87.153%) |
 | Caption-semantic selection | Complete | Frozen MPNet, k=50; 13,116 replacements (87.44%) |
-| Quality-aware selection | Pending | Design remains a placeholder |
+| Quality-aware selection | Complete | TOPIQ filter (worst 0.25% + <192 px) and λ=0.1099 quality term on D3 geometry; 6,012 differ from D3, 90.06% of D3 coverage gain kept |
 | Recall@K evaluation | Complete | Both retrieval directions; hand-checked in unit tests |
 | Standard RGB preprocessing (P1) | Complete | Direct resize, fixed scale to [-1, 1] |
 | Other preprocessing (P2–P5) | Not started | P5 can reuse the pinned OpenCLIP checkpoint |
@@ -54,7 +54,7 @@ resolving the remaining selection and preprocessing methods.
 | Category-balanced images | 15,000 unique | 15,000 unique |
 | Validation images | 5,000 | 5,000 |
 | Captions retained per image | 5 | 5 |
-| Synthetic tests | 84 passing in the locked environment | All passing |
+| Synthetic tests | 85 passing in the locked environment | All passing |
 
 ## Approved training choices
 
@@ -95,7 +95,7 @@ d_ff=2048, L=77, 40 epochs.
 - The visual and caption-semantic selections exist on Andrew's machine and must be copied to the training
   machine.
 - Alpine job scripts do not exist yet.
-- Quality-aware selection and P2–P5 details remain unapproved design choices.
+- P2–P5 details remain unapproved design choices.
 
 ## Next steps
 
@@ -104,7 +104,7 @@ d_ff=2048, L=77, 40 epochs.
 3. Run a short Alpine job to find a workable batch size at 640×640, then train the D1×P1 baseline.
 4. Copy visual and caption-semantic selections and metadata to Alpine with checksums.
 5. Implement P2–P4 preprocessing.
-6. Resolve the quality-aware method and P5; review caption diagnostics.
+6. Copy the quality-aware selection to Alpine; resolve P5; review caption diagnostics.
 
 ## Recent completions
 

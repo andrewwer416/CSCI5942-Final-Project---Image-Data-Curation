@@ -30,3 +30,12 @@ visual-stack-smoke = { cmd = [
   "-c",
   "import faiss, open_clip, torch; assert torch.cuda.is_available(), 'CUDA unavailable'; assert torch.cuda.get_device_capability() == (7, 5), torch.cuda.get_device_capability(); assert faiss.get_num_gpus() >= 1, 'FAISS GPU unavailable'; print({'torch': torch.__version__, 'cuda': torch.version.cuda, 'device': torch.cuda.get_device_name(0), 'faiss_gpus': faiss.get_num_gpus(), 'open_clip': open_clip.__version__})",
 ] }
+
+# Isolated no-reference image-quality stack for D5 quality-aware selection.
+# It has its own solve so pyiqa's large dependency tree cannot change the
+# locked default environment that produced the D3/D4 embeddings.
+[feature.quality.pypi-dependencies]
+pyiqa = "==0.1.15.post2"
+
+[environments]
+quality = { features = ["quality"], solve-group = "quality" }
