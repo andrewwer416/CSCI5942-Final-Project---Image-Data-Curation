@@ -6,7 +6,8 @@
 
 **Date**: 2026-11-22
 **Objective**: Finalize D5 quality-aware diversity so that all five selections (D1–D5) exist, then
-move on to the preprocessing decisions (P2–P5).
+move on to the preprocessing decisions. P2 was then decided and implemented (2026-11-22); P3–P5
+remain.
 
 ### What was done
 
@@ -50,7 +51,7 @@ move on to the preprocessing decisions (P2–P5).
 
 - Nothing is on Alpine yet: neither the images, the selections nor the job scripts.
 - val2017 images are not downloaded on Andrew's machine.
-- P2–P5 methods are unapproved. Next session works through them.
+- P3–P5 methods are unapproved. Next session works through them.
 
 ### Environment
 
@@ -61,6 +62,10 @@ move on to the preprocessing decisions (P2–P5).
   `data/interim/quality/`, and pinned weights in `data/raw/model-cache/`.
 
 ## Next session: P decisions
+
+**P2 is done:** centered letterbox, mid-gray padding, padding-only patches masked in attention. See
+`docs/preprocessing-p2.md`. P2 therefore measures letterboxing plus masking. Its row below is kept
+only as the original proposal; where they differ, that document wins.
 
 Each arm differs from P1 in one variable only and trains on D1 (random). Starting proposals are in
 `docs/background-research.md` §5–7. The table at its end lists what each needs before approval.
@@ -74,10 +79,10 @@ The proposed work split (Bill: P2–P4 and Alpine scripts; Andrew: P5) is still 
 | P5 | `rgb_plus_clip_features` | Fusion mechanism and location, dropout, parameter-matched control, val CLIP feature cache | Frozen OpenCLIP B/16 vector → zero-gated residual projection before the retrieval head. Fusion module instantiated in every run, fed zeros outside P5 | Model hidden width (768); evaluation with real, zeroed and batch-shuffled CLIP vectors |
 
 Cross-cutting decisions to settle alongside them:
-- **Interpolation.** P1 uses bilinear, but P3's proposal uses bicubic. Decide whether one choice is
-  shared by every arm, so interpolation doesn't confound the comparison.
+- **Interpolation.** P1 and P2 use PIL bilinear, and Andrew approved keeping it across arms. P3's
+  older proposal says bicubic and should change to bilinear unless the whole study changes.
 - **Evaluation transform.** Decide on one deterministic evaluation transform per arm, and record
-  whether P2 evaluates with letterboxing.
+  P2 evaluates with its letterbox and mask.
 - **Leakage.** Any fitted statistic (P4 mean/std, P3 audit) comes from train2017 only.
 
 ### Then

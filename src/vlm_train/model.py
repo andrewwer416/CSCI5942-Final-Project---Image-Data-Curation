@@ -68,11 +68,27 @@ class ImageEncoder(nn.Module):
         nn.init.trunc_normal_(self.class_token, std=0.02)
         nn.init.trunc_normal_(self.position_embedding, std=0.02)
 
-    def forward(self, images: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, images: torch.Tensor, patch_mask: torch.Tensor | None = None
+    ) -> torch.Tensor:
+        """Encode images; ``patch_mask`` (batch, patches), True = padding to ignore.
+
+        Masked patches are excluded as attention keys in every layer, so they never reach
+        the class token. They still pass through the layers, so masking does not save compute.
+        """
+
         patches = self.patch_embedding(images).flatten(2).transpose(1, 2)
         class_tokens = self.class_token.expand(patches.size(0), -1, -1)
         tokens = torch.cat([class_tokens, patches], dim=1) + self.position_embedding
-        encoded = self.transformer(tokens)
+        key_padding_mask = None
+        if patch_mask is not None:
+            if patch_mask.shape != patches.shape[:2]:
+                raise ValueError(
+                    f"patch_mask shape {tuple(patch_mask.shape)} != {tuple(patches.shape[:2])}"
+                )
+            class_visible = patch_mask.new_zeros(patch_mask.size(0), 1)
+            key_padding_mask = torch.cat([class_visible, patch_mask.bool()], dim=1)
+        encoded = self.transformer(tokens, src_key_padding_mask=key_padding_mask)
         return self.projection(self.norm(encoded[:, 0]))
 
 
@@ -111,16 +127,23 @@ class RetrievalModel(nn.Module):
         self.text_encoder = TextEncoder(config)
         self.logit_scale = nn.Parameter(torch.tensor(INITIAL_LOGIT_SCALE))
 
-    def encode_image(self, images: torch.Tensor) -> torch.Tensor:
-        return F.normalize(self.image_encoder(images), dim=-1)
+    def encode_image(
+        self, images: torch.Tensor, patch_mask: torch.Tensor | None = None
+    ) -> torch.Tensor:
+        return F.normalize(self.image_encoder(images, patch_mask), dim=-1)
 
     def encode_text(self, tokens: torch.Tensor) -> torch.Tensor:
         return F.normalize(self.text_encoder(tokens), dim=-1)
 
-    def forward(self, images: torch.Tensor, tokens: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self,
+        images: torch.Tensor,
+        tokens: torch.Tensor,
+        patch_mask: torch.Tensor | None = None,
+    ) -> torch.Tensor:
         """Return ``(batch, batch)`` logits: entry ``[i, j]`` scores image i against caption j."""
 
-        image_embeddings = self.encode_image(images)
+        image_embeddings = self.encode_image(images, patch_mask)
         text_embeddings = self.encode_text(tokens)
         return self.logit_scale.exp() * image_embeddings @ text_embeddings.t()
 
