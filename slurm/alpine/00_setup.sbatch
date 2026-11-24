@@ -23,10 +23,14 @@ mkdir -p "$PIP_CACHE_DIR" "$CONDA_PKGS_DIRS" "$(dirname "$MEGA_ENV")"
 
 if [ ! -x "$PYTHON" ]; then
   echo "== create environment at $MEGA_ENV"
-  # sbatch runs a non-login shell, which may not define Lmod's `module` function.
-  type module >/dev/null 2>&1 || source /etc/profile
-  module load miniforge
-  conda create -y -p "$MEGA_ENV" python=3.12 pip
+  # The job inherits the login node's module path, where miniforge cannot load,
+  # so ask a fresh login shell on this compute node where conda lives.
+  CONDA_BIN=$(bash -lc 'module load miniforge >/dev/null 2>&1 && echo "$CONDA_EXE"' 2>/dev/null | tail -1)
+  if [ ! -x "$CONDA_BIN" ]; then
+    echo "Could not locate conda through 'module load miniforge'" >&2
+    exit 1
+  fi
+  "$CONDA_BIN" create -y -p "$MEGA_ENV" python=3.12 pip
 fi
 
 echo "== install packages"
