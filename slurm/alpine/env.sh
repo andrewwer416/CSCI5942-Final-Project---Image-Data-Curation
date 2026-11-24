@@ -2,11 +2,22 @@
 # after changing into the repository root ($SLURM_SUBMIT_DIR).
 #
 # Alpine home directories hold only 2 GB, so the Python environment and the
-# pip/conda caches live in /projects/$USER instead.
+# pip/conda caches live in /projects/$USER (software installs belong there).
 
 if [ ! -f configs/data.toml ]; then
   echo "Submit jobs from the repository root (configs/data.toml not found in $PWD)" >&2
   exit 1
+fi
+
+# CURC terminates jobs doing heavy I/O on /home or /projects, so the repository,
+# COCO images, and run outputs must live under /scratch/alpine/$USER.
+if [ "${SLURM_CLUSTER_NAME:-}" = alpine ]; then
+  case "$(pwd -P)" in
+    /home/*|/projects/*)
+      echo "Submit from a clone under /scratch/alpine/$USER, not $(pwd -P)" >&2
+      exit 1
+      ;;
+  esac
 fi
 
 export MEGA_ENV="${MEGA_ENV:-/projects/$USER/software/mega-env}"

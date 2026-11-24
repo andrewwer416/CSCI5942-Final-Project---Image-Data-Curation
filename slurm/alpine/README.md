@@ -29,11 +29,24 @@ already holds a run, so a failed run must be deleted before it is resubmitted.
 
 ## Steps
 
+CURC storage rules decide where things go:
+
+| Location | Size | Backed up | Used here for |
+|---|---|---|---|
+| `/home/$USER` | 2 GB | Yes | Nothing; it is too small |
+| `/projects/$USER` | 250 GB | Yes | The Python environment and a backup of finished results |
+| `/scratch/alpine/$USER` | 10 TB | **No; files are deleted 90 days after creation** | The repository, COCO images, logs, and training runs |
+
+CURC terminates jobs that do heavy I/O on `/home` or `/projects`. Reading 15,000 images for 40
+epochs is heavy I/O, so the repository and data live in scratch. `env.sh` stops a job that is
+submitted from `/home` or `/projects`.
+
 ```bash
-# 1. On a login node, clone into /projects (home is only 2 GB).
-cd /projects/$USER
+# 1. On a login node, clone into scratch.
+mkdir -p /scratch/alpine/$USER && cd /scratch/alpine/$USER
 git clone https://github.com/andrewwer416/CSCI5942-Final-Project---Image-Data-Curation.git mega
 cd mega
+git switch bill/alpine-jobs
 mkdir -p artifacts/logs
 
 # 2. One-time setup on a CPU node: Python environment, COCO download, manifests, file check.
@@ -49,6 +62,9 @@ bash slurm/alpine/submit_runs.sh
 # Monitor
 squeue -u $USER
 tail -f artifacts/logs/mega-D1P1-s5942-<jobid>.out
+
+# 5. When runs finish, copy results to /projects, which is backed up and never purged.
+rsync -av artifacts/runs artifacts/logs /projects/$USER/mega-results/
 ```
 
 ## Settings to check
@@ -62,5 +78,10 @@ tail -f artifacts/logs/mega-D1P1-s5942-<jobid>.out
 - **GPU partition.** The scripts use `aa100`. If the probe runs out of memory at batch 64, use the
   48 GB L40 nodes for every run instead (`--partition=al40`), so that all arms keep the same batch
   size. Command-line `sbatch` options override the `#SBATCH` lines.
+- **Internet on compute nodes.** The CURC docs do not say whether compute nodes can reach the
+  internet. If the download step of the setup job fails, run
+  `PYTHONPATH=src /projects/$USER/software/mega-env/bin/python -m vlm_data download all --confirm-large-download`
+  from the repository on a login node, then resubmit the setup job. CURC's recommended route for
+  large transfers is its data transfer nodes (`dtn.rc.colorado.edu`) or Globus.
 - **Python environment.** It is in `/projects/$USER/software/mega-env`, a conda Python 3.12 with
   the PyTorch cu128 wheel. The probe prints the torch build and fails early if CUDA is not usable.
