@@ -50,3 +50,6 @@ checkpoints/
 
 # Download remnants
 *.part
+
+# Bill's personal Slurm/Alpine cheat sheet (source, PDF, and LaTeX build files) stays local
+/slurm_alpine_cheatsheet.*
