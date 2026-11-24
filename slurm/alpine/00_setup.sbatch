@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=mega-setup
 #SBATCH --partition=amilan
-#SBATCH --qos=normal
+#SBATCH --qos=cpu-normal
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8

@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=mega-D3P1
 #SBATCH --partition=aa100
-#SBATCH --qos=normal
+#SBATCH --qos=gpu-normal
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --gres=gpu:1

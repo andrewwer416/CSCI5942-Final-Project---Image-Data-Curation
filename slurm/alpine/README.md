@@ -8,7 +8,7 @@ repository root. The Slurm log path `artifacts/logs/` is relative to that folder
 Every run trains for 40 epochs at 640×640 with batch 64, saves `final.pt`, and evaluates full
 val2017 after each epoch. The batch size was measured on a Delta A40 (job 24034477): batch 64
 peaked at 36 GB and took 1.70 s per step, while batch 96 ran out of memory. A run should take
-about 5–6 hours on an A40, and each script asks for 12 hours (QoS `normal` allows 24).
+about 5–6 hours on an A40, and each script asks for 12 hours (QoS `gpu-normal`).
 
 | Script | Selection | Preprocessing | Model seed |
 |---|---|---|---|
