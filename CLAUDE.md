@@ -107,7 +107,7 @@ Study runs are Slurm jobs in `slurm/alpine/` (one `run_*.sbatch` per run; how-to
   neither backed up nor permanent.
 - Account `ucb857_peak1`. QoS names are `gpu-normal` and `cpu-normal`, not `normal`. GPU partitions
   are `aa100` (A100 40 GB, default for runs; `gpu-normal` allows 24 h and 6 of these GPUs per user)
-  and `al40` (L40 48 GB, the fallback if batch 64 does not fit). The default CPU partition is `acpu`.
+  and `al40` (L40 48 GB, the fallback if batch 64 does not fit). Every job must name a partition (CPU: `acpu`).
 - Software modules (`module load miniforge`) exist only on compute nodes, not on login nodes.
   Compute nodes can reach the internet.
 - Every arm uses batch 64. It was measured on a Delta A40: 36.2 GB peak and 1.70 s/step, while

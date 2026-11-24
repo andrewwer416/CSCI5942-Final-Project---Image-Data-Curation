@@ -73,7 +73,7 @@ rsync -av artifacts/runs artifacts/logs /projects/$USER/mega-results/
   the command line, for example `sbatch --account=ucb-general slurm/alpine/01_probe.sbatch` or
   `bash slurm/alpine/submit_runs.sh --account=ucb-general`. List your accounts with
   `sacctmgr -p show associations user=$USER`.
-- **CPU partition.** The setup job names no partition, so Slurm uses the cluster default, `acpu`.
+- **CPU partition.** The setup job uses `acpu`. Alpine rejects jobs that name no partition.
 - **GPU partition.** The scripts use `aa100`, whose GPUs are A100 **40 GB** (3 per node). QoS
   `gpu-normal` allows 24 h per job and at most 6 A100-40GB GPUs per user at a time, so two of the
   eight runs wait for a free slot. Batch 64 peaked at 36.2 GB on the A40, which is tight on 40 GB. If the probe runs out of memory at batch 64, use the
