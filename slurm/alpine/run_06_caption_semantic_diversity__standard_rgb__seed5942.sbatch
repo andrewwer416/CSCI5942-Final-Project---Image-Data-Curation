@@ -1,5 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=mega-D4P1
+#SBATCH --account=ucb857_peak1
 #SBATCH --partition=aa100
 #SBATCH --qos=gpu-normal
 #SBATCH --nodes=1

@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=mega-setup
-#SBATCH --partition=amilan
+#SBATCH --account=ucb857_peak1
 #SBATCH --qos=cpu-normal
 #SBATCH --nodes=1
 #SBATCH --ntasks=1

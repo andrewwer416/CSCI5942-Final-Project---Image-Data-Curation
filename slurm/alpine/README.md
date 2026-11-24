@@ -53,11 +53,12 @@ tail -f artifacts/logs/mega-D1P1-s5942-<jobid>.out
 
 ## Settings to check
 
-- **Account.** The scripts do not set `--account`, so Slurm uses your default account. To use a
-  course allocation, add it on the command line, for example
-  `sbatch --account=<name> slurm/alpine/01_probe.sbatch` or
-  `bash slurm/alpine/submit_runs.sh --account=<name>`. List your accounts with
+- **Account.** Every script charges `ucb857_peak1`. To charge another account, override it on
+  the command line, for example `sbatch --account=ucb-general slurm/alpine/01_probe.sbatch` or
+  `bash slurm/alpine/submit_runs.sh --account=ucb-general`. List your accounts with
   `sacctmgr -p show associations user=$USER`.
+- **CPU partition.** The setup job names no partition, so Slurm uses the cluster default (marked
+  `*` in `sinfo -s`). Add `--partition=<name>` if that default is a GPU partition.
 - **GPU partition.** The scripts use `aa100`. If the probe runs out of memory at batch 64, use the
   48 GB L40 nodes for every run instead (`--partition=al40`), so that all arms keep the same batch
   size. Command-line `sbatch` options override the `#SBATCH` lines.
