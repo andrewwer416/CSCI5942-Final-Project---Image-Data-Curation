@@ -16,7 +16,13 @@ from vlm_data.config import load_config
 from vlm_data.io import sha256_file, write_json_atomic
 from vlm_data.manifest import read_manifest
 from vlm_data.validation import validate_manifest
-from vlm_train.data import EvalRetrievalDataset, TrainRetrievalDataset
+from vlm_train.data import (
+    MASKED_PREPROCESSING,
+    PREPROCESSING_CHOICES,
+    STANDARD_RGB,
+    EvalRetrievalDataset,
+    TrainRetrievalDataset,
+)
 from vlm_train.metrics import retrieval_metrics
 from vlm_train.model import ModelConfig, RetrievalModel, contrastive_loss
 from vlm_train.tokenizer import Vocabulary
@@ -29,6 +35,12 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=Path("configs/data.toml"))
     parser.add_argument("--selection", type=Path, required=True, help="Selection JSONL to train on")
+    parser.add_argument(
+        "--preprocessing",
+        choices=PREPROCESSING_CHOICES,
+        default=STANDARD_RGB,
+        help="Image preprocessing arm; evaluation uses the same deterministic transform",
+    )
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument(
         "--image-root", type=Path, help="Folder holding train2017/ and val2017/ (default: config)"
@@ -60,6 +72,7 @@ def evaluate(
     *,
     device: torch.device,
     use_amp: bool,
+    masked: bool,
 ) -> dict[str, float]:
     """Embed every image and caption, then score all pairs on the CPU."""
 
@@ -67,11 +80,12 @@ def evaluate(
     image_batches: list[torch.Tensor] = []
     text_batches: list[torch.Tensor] = []
     captions_per_image = 0
-    for images, tokens in loader:
+    for images, patch_mask, tokens in loader:
         captions_per_image = tokens.size(1)
         flat_tokens = tokens.flatten(0, 1).to(device, non_blocking=True)
+        mask = patch_mask.to(device, non_blocking=True) if masked else None
         with torch.autocast(device.type, enabled=use_amp):
-            image_embeddings = model.encode_image(images.to(device, non_blocking=True))
+            image_embeddings = model.encode_image(images.to(device, non_blocking=True), mask)
             text_embeddings = model.encode_text(flat_tokens)
         image_batches.append(image_embeddings.float().cpu())
         text_batches.append(text_embeddings.float().cpu())
@@ -89,6 +103,8 @@ def train(args: argparse.Namespace) -> dict[str, float]:
     device = torch.device(args.device)
     use_amp = device.type == "cuda" and not args.no_amp
     model_seed = config.seed if args.model_seed is None else args.model_seed
+    # Unpadded arms pass no mask, so their attention path is exactly P1's.
+    masked = args.preprocessing in MASKED_PREPROCESSING
     torch.manual_seed(model_seed)
     if (args.output_dir / "run_config.json").exists() or (
         args.output_dir / "metrics.jsonl"
@@ -125,9 +141,14 @@ def train(args: argparse.Namespace) -> dict[str, float]:
         vocabulary=vocabulary,
         seed=config.seed,
         image_size=image_size,
+        preprocessing=args.preprocessing,
     )
     val_dataset = EvalRetrievalDataset(
-        val_records, image_root=image_root, vocabulary=vocabulary, image_size=image_size
+        val_records,
+        image_root=image_root,
+        vocabulary=vocabulary,
+        image_size=image_size,
+        preprocessing=args.preprocessing,
     )
     shuffle_generator = torch.Generator()
     train_loader = DataLoader(
@@ -165,6 +186,8 @@ def train(args: argparse.Namespace) -> dict[str, float]:
         args.output_dir / "run_config.json",
         {
             "selection": str(args.selection),
+            "preprocessing": args.preprocessing,
+            "padding_masked": masked,
             "seed": config.seed,
             "model_seed": model_seed,
             "caption_seed": config.seed,
@@ -208,12 +231,13 @@ def train(args: argparse.Namespace) -> dict[str, float]:
         shuffle_generator.manual_seed(config.seed + epoch)
         started = time.perf_counter()
         total_loss = 0.0
-        for step, (images, tokens) in enumerate(train_loader, start=1):
+        for step, (images, patch_mask, tokens) in enumerate(train_loader, start=1):
             images = images.to(device, non_blocking=True)
             tokens = tokens.to(device, non_blocking=True)
+            mask = patch_mask.to(device, non_blocking=True) if masked else None
             optimizer.zero_grad(set_to_none=True)
             with torch.autocast(device.type, enabled=use_amp):
-                loss = contrastive_loss(model(images, tokens))
+                loss = contrastive_loss(model(images, tokens, mask))
             if not math.isfinite(loss.item()):
                 raise RuntimeError(f"Loss became {loss.item()} at epoch {epoch} step {step}")
             scaler.scale(loss).backward()
@@ -233,7 +257,7 @@ def train(args: argparse.Namespace) -> dict[str, float]:
             "train_loss": total_loss / len(train_loader),
             "train_seconds": train_seconds,
             "seconds_per_step": train_seconds / len(train_loader),
-            **evaluate(model, val_loader, device=device, use_amp=use_amp),
+            **evaluate(model, val_loader, device=device, use_amp=use_amp, masked=masked),
         }
         if device.type == "cuda":
             result["peak_gpu_memory_mib"] = torch.cuda.max_memory_allocated(device) / 2**20

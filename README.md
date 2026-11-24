@@ -75,9 +75,10 @@ the selection README.
 | Category-balanced selection | Ready; train-count calibrated | `data/processed/selections/` |
 | Frozen CLIP visual diversity | Calibrated: k=50, duplicate cutoff 0.99 | `data/processed/selections/` |
 | Caption-semantic diversity | Calibrated frozen MPNet: k=50 | `data/processed/selections/` |
-| Quality-aware diversity | Design decision pending | — |
+| Quality-aware diversity | Calibrated: TOPIQ filter + quality term on D3, λ=0.1099 | `data/processed/selections/` |
 | Standard RGB preprocessing (P1) | Ready | `src/vlm_train/data.py` |
-| Other four preprocessing modes (P2–P5) | Not started | — |
+| Aspect-ratio-preserving preprocessing (P2) | Ready: letterbox, mid-gray padding, padded patches masked | `src/vlm_train/data.py`, `docs/preprocessing-p2.md` |
+| Other preprocessing modes (P3–P5) | Not started | — |
 | VLM model, training loop, Recall@K | Ready; smoke-tested only | `artifacts/<run>/` |
 
 ## Training

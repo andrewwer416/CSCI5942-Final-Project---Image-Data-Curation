@@ -292,6 +292,71 @@ class FacilityLocationTests(unittest.TestCase):
                 duplicate_groups=np.array([8, 8, -1]),
             )
 
+    def test_numpy_selector_modular_bonus_matches_brute_force_greedy(self) -> None:
+        try:
+            import numpy as np
+        except ImportError:
+            self.skipTest("NumPy is an optional visual-selection dependency")
+
+        generator = random.Random(17)
+        image_ids = [90, 10, 70, 20, 60, 30, 50, 40, 80, 15]
+        rows: list[list[tuple[int, float]]] = []
+        for demand in range(len(image_ids)):
+            neighbors = {demand}
+            while len(neighbors) < 4:
+                neighbors.add(generator.randrange(len(image_ids)))
+            rows.append(
+                [
+                    (candidate, 1.0 if candidate == demand else generator.uniform(0.1, 0.9))
+                    for candidate in sorted(neighbors)
+                ]
+            )
+        graph = _graph(image_ids, rows)
+        arrays = {
+            "image_ids": np.asarray(graph.image_ids, dtype=np.int64),
+            "reverse_indptr": np.asarray(graph.reverse_indptr, dtype=np.int64),
+            "reverse_indices": np.asarray(graph.reverse_indices, dtype=np.int64),
+            "reverse_similarities": np.asarray(graph.reverse_similarities, dtype=np.float64),
+        }
+        bonus = np.array([generator.uniform(0.0, 1.5) for _ in image_ids])
+
+        def brute_force(budget: int) -> tuple[int, ...]:
+            chosen: list[int] = []
+            for _ in range(budget):
+                best = None
+                for candidate in range(len(image_ids)):
+                    if candidate in chosen:
+                        continue
+                    ids = [image_ids[i] for i in chosen]
+                    gain = (
+                        facility_location_value(graph, ids + [image_ids[candidate]])
+                        - facility_location_value(graph, ids)
+                        + bonus[candidate]
+                    )
+                    key = (-round(gain, 9), image_ids[candidate])
+                    if best is None or key < best[0]:
+                        best = (key, candidate)
+                chosen.append(best[1])
+            return tuple(image_ids[i] for i in chosen)
+
+        result = select_facility_location_numpy(**arrays, budget=6, modular_gains=bonus)
+        self.assertEqual(result.selected_image_ids, brute_force(6))
+        self.assertAlmostEqual(result.modular_value, float(bonus[list(result.selected_indices)].sum()))
+        self.assertAlmostEqual(
+            result.objective_value, facility_location_value(graph, result.selected_image_ids)
+        )
+
+        plain = select_facility_location_numpy(**arrays, budget=6)
+        zero = select_facility_location_numpy(
+            **arrays, budget=6, modular_gains=np.zeros(len(image_ids))
+        )
+        self.assertEqual(zero.selected_image_ids, plain.selected_image_ids)
+        self.assertEqual(plain.modular_value, 0.0)
+
+        for invalid in (np.full(len(image_ids), -0.1), np.full(len(image_ids), np.nan), np.ones(3)):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                select_facility_location_numpy(**arrays, budget=1, modular_gains=invalid)
+
 
 if __name__ == "__main__":
     unittest.main()

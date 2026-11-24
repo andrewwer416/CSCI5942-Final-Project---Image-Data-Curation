@@ -44,6 +44,8 @@ checkpoints/
 !data/processed/selections/visual_diversity_k50_dup0p99_seed5942_n15000.meta.json
 !data/processed/selections/caption_semantic_k50_seed5942_n15000.jsonl
 !data/processed/selections/caption_semantic_k50_seed5942_n15000.meta.json
+!data/processed/selections/quality_aware_k50_dup0p99_topiq_lam0p1099_seed5942_n15000.jsonl
+!data/processed/selections/quality_aware_k50_dup0p99_topiq_lam0p1099_seed5942_n15000.meta.json
 !reports/README.md
 
 # Download remnants

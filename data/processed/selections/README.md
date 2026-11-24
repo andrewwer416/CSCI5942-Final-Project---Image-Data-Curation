@@ -1,7 +1,7 @@
 # Training-Set Selections
 
 This directory contains the exact 15,000-image `train2017` manifests used by selection experiments.
-The four approved JSONL manifests and metadata sidecars are tracked in Git so collaborators
+The five approved JSONL manifests and metadata sidecars are tracked in Git so collaborators
 can train on the exact same selections. Intermediate data and experimental selections stay ignored.
 Treat these manifests as fixed experiment inputs: any approved regeneration must include a reviewed
 metadata/hash change, rather than silently replacing an existing study set.
@@ -24,7 +24,7 @@ Every implemented selection must:
 | Category balanced | Implemented | `category_balanced_t0p025_cap4_seed5942_n15000.jsonl` |
 | Visual diversity | Implemented; train-only calibrated | `visual_diversity_k50_dup0p99_seed5942_n15000.jsonl` |
 | Caption-semantic diversity | Implemented; train-only calibrated | `caption_semantic_k50_seed5942_n15000.jsonl` |
-| Quality-aware diversity | Placeholder — design pending | Not generated |
+| Quality-aware diversity | Implemented; train-only calibrated | `quality_aware_k50_dup0p99_topiq_lam0p1099_seed5942_n15000.jsonl` (see `docs/quality-aware-selection.md`) |
 
 ## Random baseline
 
@@ -347,9 +347,19 @@ The [results and diagnostic interpretation](../../../docs/caption-semantic-resul
 record category reallocations, modest visual cross-view gains, mixed lexical-proxy changes,
 and the observed 7.32% extreme semantic-outlier share.
 
-### Quality-aware diversity — TODO
+### Quality-aware diversity
 
-- Decide the quality signals, rejection policy, and diversity–quality trade-off.
-- Define score normalization, missing-value behavior, and deterministic optimization.
-- Audit which categories and image conditions the quality rule removes.
-- Do not generate a manifest yet.
+Implemented and approved on 2026-11-22. Two steps:
+- **Filter:** 485 images are removed before selection. These are the 190 images with a short side
+  under 192 px, plus the worst 0.25% of the rest by TOPIQ-NR, a quality model trained on KonIQ-10k
+  human ratings (295 images, TOPIQ < 0.2060).
+- **Selection:** D3's facility-location selection (k=50, 0.99 duplicate groups, outlier cap 300),
+  plus a TOPIQ bonus for each image, weighted by λ = 0.1099. That weight is the largest that keeps
+  ≥ 90% of D3's coverage gain over random.
+
+The set differs from D3 by **6,012 images** and from random by 13,105. It keeps 90.06% of D3's
+coverage gain and raises mean TOPIQ from 0.663 to 0.726 (bootstrap 95% interval for the gain:
+0.061–0.066). The coverage cost falls mostly on the rarest visual regions: p99 distance goes from
+0.350 to 0.387. Regenerate it with `PYTHONPATH=src pixi run python scripts/calibrate_quality.py`.
+The [method record](../../../docs/quality-aware-selection.md) lists every measure that was tried
+and why it was rejected.
