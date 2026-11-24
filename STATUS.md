@@ -1,6 +1,6 @@
 # Project Status
 
-**Last Updated**: 2026-11-22
+**Last Updated**: 2026-11-24
 
 ## Current focus
 
@@ -25,7 +25,7 @@ resolving the remaining selection and preprocessing methods.
 | Aspect-ratio-preserving RGB (P2) | Complete | Centered letterbox, mid-gray padding, padding-only patches masked in attention; `docs/preprocessing-p2.md` |
 | Other preprocessing (P3–P5) | Not started | P5 can reuse the pinned OpenCLIP checkpoint |
 | VLM model and training loop | Smoke-tested | Runs end to end on 4 GB; no full-length run yet |
-| Alpine job scripts | Not started | — |
+| Alpine job scripts | Written, not yet run on Alpine | `slurm/alpine/`: setup, batch probe, and one script per run for the 8 runs D1–D5×P1 (3 baseline seeds) and D1×P2; simulated locally end to end |
 
 ## Foundation progress
 
@@ -84,30 +84,34 @@ fixed across compared arms.
 | Text pooling | Output at the `<eos>` position | Same as CLIP |
 | Image encoder width | 768 dimensions, 12 heads | Standard ViT-B size |
 | Mixed precision | On for GPU runs (`--no-amp` disables it) | Reduces GPU memory use |
-| Batch size | Not decided; `--batch-size`, default 32 | To be measured at 640×640 on Alpine |
+| Batch size | 64 for every arm | Delta A40 probe (job 24034477), 640 px, AMP: batch 32 = 19.0 GB, 0.91 s/step; batch 64 = 36.2 GB, 1.70 s/step; batch 96 out of memory. About 5–6 h per 40-epoch run on an A40 |
 
 Proposal values are used as written: ViT-B/16 at 640×640, 12-layer text Transformer with d=512,
 d_ff=2048, L=77, 40 epochs.
 
 ## Blockers
 
-- Full COCO train and validation images are not on Alpine; validation images are needed for model
-  evaluation.
-- The visual and caption-semantic selections exist on Andrew's machine and must be copied to the training
-  machine.
-- Alpine job scripts do not exist yet.
+- Full COCO train and validation images are not on Alpine yet; `slurm/alpine/00_setup.sbatch`
+  downloads and checks them. All five selections are tracked in Git, so cloning the repository
+  copies them.
 - P3–P5 details remain unapproved design choices.
 
 ## Next steps
 
 1. Review the training choices above and the recorded visual calibration and duplicate-audit results.
-2. Download the full COCO images on Alpine and run `vlm-data validate --check-files`.
-3. Run a short Alpine job to find a workable batch size at 640×640, then train the D1×P1 baseline.
-4. Copy visual and caption-semantic selections and metadata to Alpine with checksums.
-5. Implement P3–P4 preprocessing.
-6. Copy the quality-aware selection to Alpine; resolve P5; review caption diagnostics.
+2. On Alpine: run `00_setup.sbatch`, confirm batch 64 with `01_probe.sbatch`, then submit the
+   eight runs (`slurm/alpine/README.md`).
+3. Implement P3–P4 preprocessing and add their run scripts.
+4. Resolve P5; review caption diagnostics.
 
 ## Recent completions
+
+### 2026-11-24 (Bill)
+
+- Measured the study batch size on an NCSA Delta A40 with full COCO downloaded and validated there:
+  batch 64 fits (36.2 GB, 1.70 s/step) and batch 96 does not.
+- Added `slurm/alpine/`: a setup job, a batch-64 probe for P1 and P2, one script per study run, and
+  a submit helper. `slurm/delta/` holds the Delta probe and training scripts.
 
 ### 2026-11-08 (Bill)
 

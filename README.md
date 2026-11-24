@@ -84,7 +84,7 @@ the selection README.
 ## Training
 
 `src/vlm_train/` trains one selection/preprocessing configuration and reports Recall@K on val2017.
-Only P1 preprocessing exists so far. Progress, smoke-test results, and the training choices awaiting
+P1 and P2 preprocessing exist so far (`--preprocessing`). Progress, smoke-test results, and the training choices awaiting
 review are in `STATUS.md`.
 
 The smoke test uses a small image sample kept apart from the official files
@@ -104,8 +104,12 @@ A full run uses the official image folder and the configured 640 px and 40 epoch
 ```bash
 PYTHONPATH=src python3 -m vlm_train.train \
   --selection data/processed/selections/random_seed5942_n15000.jsonl \
-  --output-dir artifacts/random__standard_rgb --batch-size <N> --save-checkpoint
+  --output-dir artifacts/random__standard_rgb --batch-size 64 --save-checkpoint
 ```
+
+The study runs on CURC Alpine with one Slurm job per run: see
+[`slurm/alpine/README.md`](slurm/alpine/README.md). `slurm/delta/` holds the NCSA Delta scripts
+used to measure the batch size.
 
 Each run writes `run_config.json`, `vocabulary.json`, and `metrics.jsonl` to its output directory.
 
