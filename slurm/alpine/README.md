@@ -77,7 +77,7 @@ rsync -av artifacts/runs artifacts/logs /projects/$USER/mega-results/
 - **GPU partition.** The scripts use `aa100`, whose GPUs are A100 **40 GB** (3 per node). QoS
   `gpu-normal` allows 24 h per job and at most 6 A100-40GB GPUs per user at a time, so two of the
   eight runs wait for a free slot. Batch 64 peaked at 36.2 GB on the A40, which is tight on 40 GB. If the probe runs out of memory at batch 64, use the
-  48 GB L40 nodes for every run instead (`--partition=al40`), so that all arms keep the same batch
+  48 GB L40 nodes for every run instead (`--partition=al40 --gres=gpu:l40:1`), so that all arms keep the same batch
   size. Command-line `sbatch` options override the `#SBATCH` lines.
 - **Internet on compute nodes.** Checked on 2026-11-24 from an `acpu` node: the COCO and PyTorch
   download servers are reachable, so the setup job downloads by itself.

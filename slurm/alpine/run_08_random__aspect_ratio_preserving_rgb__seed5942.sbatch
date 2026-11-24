@@ -5,7 +5,7 @@
 #SBATCH --qos=gpu-normal
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:a100-40gb:1
 #SBATCH --cpus-per-task=16
 #SBATCH --time=12:00:00
 #SBATCH --output=artifacts/logs/%x-%j.out

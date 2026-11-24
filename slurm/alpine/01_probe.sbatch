@@ -5,7 +5,7 @@
 #SBATCH --qos=gpu-normal
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:a100-40gb:1
 #SBATCH --cpus-per-task=16
 #SBATCH --time=00:30:00
 #SBATCH --output=artifacts/logs/%x-%j.out
@@ -15,7 +15,7 @@
 # Each arm runs 20 steps and evaluates on 256 validation images.
 #
 #   sbatch slurm/alpine/01_probe.sbatch
-#   sbatch --partition=al40 slurm/alpine/01_probe.sbatch   # L40 (48 GB) instead
+#   sbatch --partition=al40 --gres=gpu:l40:1 slurm/alpine/01_probe.sbatch   # L40 (48 GB)
 # ---------------------------------------------------------------------
 set -euo pipefail
 cd "$SLURM_SUBMIT_DIR"
