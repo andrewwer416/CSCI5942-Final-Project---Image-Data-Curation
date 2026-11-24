@@ -73,15 +73,13 @@ rsync -av artifacts/runs artifacts/logs /projects/$USER/mega-results/
   the command line, for example `sbatch --account=ucb-general slurm/alpine/01_probe.sbatch` or
   `bash slurm/alpine/submit_runs.sh --account=ucb-general`. List your accounts with
   `sacctmgr -p show associations user=$USER`.
-- **CPU partition.** The setup job names no partition, so Slurm uses the cluster default (marked
-  `*` in `sinfo -s`). Add `--partition=<name>` if that default is a GPU partition.
-- **GPU partition.** The scripts use `aa100`. If the probe runs out of memory at batch 64, use the
+- **CPU partition.** The setup job names no partition, so Slurm uses the cluster default, `acpu`.
+- **GPU partition.** The scripts use `aa100`, whose GPUs are A100 **40 GB** (3 per node). QoS
+  `gpu-normal` allows 24 h per job and at most 6 A100-40GB GPUs per user at a time, so two of the
+  eight runs wait for a free slot. Batch 64 peaked at 36.2 GB on the A40, which is tight on 40 GB. If the probe runs out of memory at batch 64, use the
   48 GB L40 nodes for every run instead (`--partition=al40`), so that all arms keep the same batch
   size. Command-line `sbatch` options override the `#SBATCH` lines.
-- **Internet on compute nodes.** The CURC docs do not say whether compute nodes can reach the
-  internet. If the download step of the setup job fails, run
-  `PYTHONPATH=src /projects/$USER/software/mega-env/bin/python -m vlm_data download all --confirm-large-download`
-  from the repository on a login node, then resubmit the setup job. CURC's recommended route for
-  large transfers is its data transfer nodes (`dtn.rc.colorado.edu`) or Globus.
+- **Internet on compute nodes.** Checked on 2026-11-24 from an `acpu` node: the COCO and PyTorch
+  download servers are reachable, so the setup job downloads by itself.
 - **Python environment.** It is in `/projects/$USER/software/mega-env`, a conda Python 3.12 with
   the PyTorch cu128 wheel. The probe prints the torch build and fails early if CUDA is not usable.

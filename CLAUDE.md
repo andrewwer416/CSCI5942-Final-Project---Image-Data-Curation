@@ -106,7 +106,10 @@ Study runs are Slurm jobs in `slurm/alpine/` (one `run_*.sbatch` per run; how-to
 - Copy finished runs and logs to `/projects/$USER/mega-results/` with `rsync`, because scratch is
   neither backed up nor permanent.
 - Account `ucb857_peak1`. QoS names are `gpu-normal` and `cpu-normal`, not `normal`. GPU partitions
-  are `aa100` (default for runs) and `al40` (48 GB, the fallback if batch 64 does not fit).
+  are `aa100` (A100 40 GB, default for runs; `gpu-normal` allows 24 h and 6 of these GPUs per user)
+  and `al40` (L40 48 GB, the fallback if batch 64 does not fit). The default CPU partition is `acpu`.
+- Software modules (`module load miniforge`) exist only on compute nodes, not on login nodes.
+  Compute nodes can reach the internet.
 - Every arm uses batch 64. It was measured on a Delta A40: 36.2 GB peak and 1.70 s/step, while
   batch 96 ran out of memory. A 40-epoch run takes about 5–6 h on an A40.
 - Logging in needs a password and Duo. Claude can reach Alpine only through `ssh alpine`, an
