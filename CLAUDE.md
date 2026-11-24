@@ -89,6 +89,30 @@ tests/                   Synthetic, offline test suite
 - Treat an uncalibrated category-balance override as an approved study method.
 - Overwrite a user's generated artifact without an atomic write.
 
+## Training on CURC Alpine
+
+Study runs are Slurm jobs in `slurm/alpine/` (one `run_*.sbatch` per run; how-to in
+`slurm/alpine/README.md`). `slurm/delta/` was used only to measure the batch size.
+
+| Location | Quota | Backed up | Use it for |
+|---|---|---|---|
+| `/home/$USER` | 2 GB | Yes | Nothing for this project; too small |
+| `/projects/$USER` | 250 GB | Yes, never purged | The Python environment (`software/mega-env`), pip/conda caches, result backups |
+| `/scratch/alpine/$USER` | 10 TB | No; purged 90 days after creation | The repository clone, COCO images, logs, and training runs |
+
+- CURC terminates jobs that do heavy I/O on `/home` or `/projects`, and may suspend the account.
+  Submit every job from the clone under `/scratch/alpine/$USER/mega`. `slurm/alpine/env.sh`
+  refuses to run a job submitted from `/home` or `/projects`.
+- Copy finished runs and logs to `/projects/$USER/mega-results/` with `rsync`, because scratch is
+  neither backed up nor permanent.
+- Account `ucb857_peak1`. QoS names are `gpu-normal` and `cpu-normal`, not `normal`. GPU partitions
+  are `aa100` (default for runs) and `al40` (48 GB, the fallback if batch 64 does not fit).
+- Every arm uses batch 64. It was measured on a Delta A40: 36.2 GB peak and 1.70 s/step, while
+  batch 96 ran out of memory. A 40-epoch run takes about 5–6 h on an A40.
+- Logging in needs a password and Duo. Claude can reach Alpine only through `ssh alpine`, an
+  SSH ControlMaster alias, after the user has logged in with it once.
+- Ask before submitting full training runs: they spend a shared allocation.
+
 ## Notes
 
 The proposal does not fully specify several advanced selection and preprocessing methods. Category
