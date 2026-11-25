@@ -10,9 +10,24 @@ functions on CPU tensors unless the GPU has memory to spare.
 
 from __future__ import annotations
 
-from typing import Sequence
+import re
+from typing import Mapping, Sequence
 
 import torch
+
+
+# Basic color terms for the color-caption breakdown (docs/preprocessing-p4.md).
+COLOR_WORDS = (
+    "red orange yellow green blue purple pink brown black white gray grey silver gold "
+    "golden tan beige"
+).split()
+_COLOR_PATTERN = re.compile(r"\b(?:" + "|".join(COLOR_WORDS) + r")\b")
+
+
+def mentions_color(text: str) -> bool:
+    """True if a caption names a basic color word (whole word, case-insensitive)."""
+
+    return _COLOR_PATTERN.search(text.lower()) is not None
 
 
 def recall_at_k(ranks: torch.Tensor, k: int) -> float:
@@ -51,8 +66,14 @@ def retrieval_metrics(
     similarity: torch.Tensor,
     caption_to_image: torch.Tensor,
     ks: Sequence[int] = (1, 5, 10),
+    caption_subsets: Mapping[str, torch.Tensor] | None = None,
 ) -> dict[str, float]:
-    """Compute Recall@K in both retrieval directions."""
+    """Compute Recall@K in both retrieval directions.
+
+    ``caption_subsets`` maps a name to a boolean mask over captions. For each, text-to-image
+    Recall@K is also reported over just those caption queries, as
+    ``t2i_recall@{k}_{name}``, with the query count as ``{name}_caption_count``.
+    """
 
     if similarity.size(1) != caption_to_image.size(0):
         raise ValueError(
@@ -65,4 +86,12 @@ def retrieval_metrics(
     for k in ks:
         metrics[f"i2t_recall@{k}"] = recall_at_k(image_ranks, k)
         metrics[f"t2i_recall@{k}"] = recall_at_k(caption_ranks, k)
+    for name, mask in (caption_subsets or {}).items():
+        if mask.shape != caption_ranks.shape or mask.dtype != torch.bool:
+            raise ValueError(f"caption subset {name!r} must be a bool mask over captions")
+        if not mask.any():
+            raise ValueError(f"caption subset {name!r} is empty")
+        metrics[f"{name}_caption_count"] = float(mask.sum())
+        for k in ks:
+            metrics[f"t2i_recall@{k}_{name}"] = recall_at_k(caption_ranks[mask], k)
     return metrics

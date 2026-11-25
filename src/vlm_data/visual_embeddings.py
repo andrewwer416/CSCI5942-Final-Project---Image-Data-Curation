@@ -199,8 +199,13 @@ def generate_frozen_clip_embeddings(
     num_workers: int,
     checkpoint_cache: Path | None = None,
     overwrite: bool = False,
+    split: str = "train2017",
 ) -> dict[str, Any]:
     """Generate an image-ID-ordered, unit-normalized float32 embedding cache.
+
+    ``split`` is ``train2017`` (selection and P5 training inputs) or ``val2017`` (P5
+    evaluation inputs only). The val2017 cache is a model input computed per image by the
+    frozen checkpoint; nothing is fitted or selected from it.
 
     The model is always frozen and evaluated under ``torch.inference_mode``.  The
     caller must choose inference precision explicitly because it is part of the
@@ -209,6 +214,8 @@ def generate_frozen_clip_embeddings(
 
     if inference_precision not in {"fp32", "amp_fp16"}:
         raise ValueError("inference_precision must be 'fp32' or 'amp_fp16'")
+    if split not in {"train2017", "val2017"}:
+        raise ValueError("split must be 'train2017' or 'val2017'")
     if batch_size <= 0 or num_workers < 0:
         raise ValueError("batch_size must be positive and num_workers non-negative")
 
@@ -221,7 +228,10 @@ def generate_frozen_clip_embeddings(
     project_root = Path(project_root)
     source_sha256 = sha256_file(source_manifest)
     records = canonical_training_records(
-        read_manifest(source_manifest), raw_root=raw_root, check_files=True
+        read_manifest(source_manifest),
+        raw_root=raw_root,
+        expected_split=split,
+        check_files=True,
     )
 
     try:
@@ -348,7 +358,7 @@ def generate_frozen_clip_embeddings(
                 "manifest": _project_relative(source_manifest, project_root),
                 "manifest_sha256": source_sha256,
                 "raw_root": _project_relative(raw_root, project_root),
-                "split": "train2017",
+                "split": split,
                 "record_count": len(records),
                 "image_ids_sha256": image_ids_sha256(image_ids.tolist()),
             },

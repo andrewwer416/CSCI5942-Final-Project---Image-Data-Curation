@@ -32,6 +32,8 @@ class ModelConfig:
     text_heads: int = 8
     text_feedforward: int = 2048
     embed_dim: int = 512
+    # P5: width of the frozen CLIP image vector fused into the image encoder; 0 = no fusion.
+    clip_dim: int = 0
 
 
 def _transformer(dim: int, heads: int, feedforward: int, layers: int) -> nn.TransformerEncoder:
@@ -69,9 +71,15 @@ class ImageEncoder(nn.Module):
         nn.init.trunc_normal_(self.position_embedding, std=0.02)
 
     def forward(
-        self, images: torch.Tensor, patch_mask: torch.Tensor | None = None
+        self,
+        images: torch.Tensor,
+        patch_mask: torch.Tensor | None = None,
+        pooled_residual: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Encode images; ``patch_mask`` (batch, patches), True = padding to ignore.
+
+        ``pooled_residual`` (batch, image_dim) is added to the class-token output before the
+        final LayerNorm and projection. P5 uses it for the projected CLIP vector.
 
         Masked patches are excluded as attention keys in every layer, so they never reach
         the class token. They still pass through the layers, so masking does not save compute.
@@ -89,7 +97,10 @@ class ImageEncoder(nn.Module):
             class_visible = patch_mask.new_zeros(patch_mask.size(0), 1)
             key_padding_mask = torch.cat([class_visible, patch_mask.bool()], dim=1)
         encoded = self.transformer(tokens, src_key_padding_mask=key_padding_mask)
-        return self.projection(self.norm(encoded[:, 0]))
+        pooled = encoded[:, 0]
+        if pooled_residual is not None:
+            pooled = pooled + pooled_residual
+        return self.projection(self.norm(pooled))
 
 
 class TextEncoder(nn.Module):
@@ -126,11 +137,27 @@ class RetrievalModel(nn.Module):
         self.image_encoder = ImageEncoder(config)
         self.text_encoder = TextEncoder(config)
         self.logit_scale = nn.Parameter(torch.tensor(INITIAL_LOGIT_SCALE))
+        self.clip_projection: nn.Linear | None = None
+        if config.clip_dim:
+            # P5 late fusion: projection(LayerNorm(CLS + W clip)), W without bias, Xavier.
+            # Created last and under a forked RNG, so every other weight starts exactly as
+            # in a P1 model built with the same seed: P5 vs P1 is a paired comparison.
+            with torch.random.fork_rng(devices=[]):
+                self.clip_projection = nn.Linear(config.clip_dim, config.image_dim, bias=False)
+                nn.init.xavier_uniform_(self.clip_projection.weight)
 
     def encode_image(
-        self, images: torch.Tensor, patch_mask: torch.Tensor | None = None
+        self,
+        images: torch.Tensor,
+        patch_mask: torch.Tensor | None = None,
+        clip_features: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        return F.normalize(self.image_encoder(images, patch_mask), dim=-1)
+        if (self.clip_projection is None) != (clip_features is None):
+            raise ValueError("clip_features must be given exactly when the model fuses CLIP")
+        residual = None
+        if self.clip_projection is not None:
+            residual = self.clip_projection(clip_features)
+        return F.normalize(self.image_encoder(images, patch_mask, residual), dim=-1)
 
     def encode_text(self, tokens: torch.Tensor) -> torch.Tensor:
         return F.normalize(self.text_encoder(tokens), dim=-1)
@@ -140,10 +167,11 @@ class RetrievalModel(nn.Module):
         images: torch.Tensor,
         tokens: torch.Tensor,
         patch_mask: torch.Tensor | None = None,
+        clip_features: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Return ``(batch, batch)`` logits: entry ``[i, j]`` scores image i against caption j."""
 
-        image_embeddings = self.encode_image(images, patch_mask)
+        image_embeddings = self.encode_image(images, patch_mask, clip_features)
         text_embeddings = self.encode_text(tokens)
         return self.logit_scale.exp() * image_embeddings @ text_embeddings.t()
 
