@@ -41,6 +41,13 @@ CURC terminates jobs that do heavy I/O on `/home` or `/projects`. Reading 15,000
 epochs is heavy I/O, so the repository and data live in scratch. `env.sh` stops a job that is
 submitted from `/home` or `/projects`.
 
+Scratch is served over NFS, where opening a small file is slow: an I/O test (job 36356658) read
+only about 20 images/s, and the probe ran input-bound at 7.2 s/step. So `run_training` first runs
+`stage_images.py`, which extracts the run's 15,000 train images and all 5,000 val images from the
+COCO zips in `data/raw/coco/downloads/` onto the node's local disk (`$SLURM_SCRATCH`, deleted when
+the job ends), then trains with `--image-root` pointing there. Staging took 89 s (job 36359410), and
+decoding from local disk ran at about 1,100 images/s. **Keep the zips:** every run reads them.
+
 ```bash
 # 1. On a login node, clone into scratch.
 mkdir -p /scratch/alpine/$USER && cd /scratch/alpine/$USER

@@ -43,14 +43,34 @@ EOF
   echo "commit=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
 }
 
+# Opening many small files on /scratch (NFS) made the probe input-bound (job
+# 36287488: 7.2 s/step, while an I/O test read only ~20 images/s). So each run
+# first extracts its selection's train images and all val images from the COCO
+# zips onto the node's local disk ($SLURM_SCRATCH, removed when the job ends)
+# and reads them from there. Prints the image root on its last line.
+stage_images() {
+  local selection=$1 dest="${SLURM_SCRATCH:?SLURM_SCRATCH is not set}/coco"
+  echo "stage start=$(date -Is)" >&2
+  "$PYTHON" slurm/alpine/stage_images.py \
+    --selection "$selection" --downloads data/raw/coco/downloads --dest "$dest" >&2
+  echo "$dest"
+}
+
 # One full 40-epoch study run. Arguments go straight to vlm_train.train; the
 # run scripts pass --selection, --preprocessing, --model-seed and --output-dir.
 run_training() {
   print_job_environment
+  local selection="" previous="" image_root
+  for arg in "$@"; do
+    [ "$previous" = --selection ] && selection=$arg
+    previous=$arg
+  done
+  image_root=$(stage_images "${selection:?run_training needs --selection}")
   srun "$PYTHON" -m vlm_train.train \
     --batch-size "$STUDY_BATCH_SIZE" \
     --num-workers "$STUDY_NUM_WORKERS" \
     --save-checkpoint \
+    --image-root "$image_root" \
     "$@"
   echo "finished=$(date -Is)"
 }
