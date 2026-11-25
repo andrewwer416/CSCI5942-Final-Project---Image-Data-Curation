@@ -91,6 +91,7 @@ tests/                   Synthetic, offline test suite
 
 ## Notes
 
-The proposal does not fully specify several advanced selection and preprocessing methods. Category
-balancing is resolved; the remaining open choices are listed in `docs/data-foundation.md`. Resolve
-and pin them before generating expensive embeddings or starting training runs.
+The proposal did not fully specify several advanced selection and preprocessing methods. All of them
+(D1–D5, P1–P5) are now resolved and implemented. `docs/study-methods.md` has the final definitions,
+and each method has its own decision record in `docs/`. Changing any method is a new version and
+needs approval.
