@@ -110,12 +110,11 @@ The analysis report is written to `reports/data/category-balance-analysis.md`. T
 metadata repeats the threshold, cap, minimum-change fraction, actual overlap, changed count, and
 whether the requirement was met.
 
-## Future selection placeholders
+## Diversity selections (D3–D5)
 
-These methods remain intentionally unresolved. Research notes in `docs/background-research.md` are
-starting points, not approved operational specifications. Each method should receive its own
-parameter decision, implementation, real-data audit, metadata contract, and tests before its
-placeholder is replaced.
+All three are approved and generated. Each had its own parameter decisions, implementation,
+train-only audit, metadata contract and tests. `docs/background-research.md` holds the original
+starting points; the sections below and the linked records hold the final specifications.
 
 ### Visual diversity — design record
 
@@ -265,7 +264,7 @@ Reverse CSR roughly doubles graph storage. A dense float32 similarity matrix wou
 PyTorch 2.5.1, torchvision 0.20.1, CUDA 12.4, OpenCLIP 3.3.0, and GPU FAISS 1.12.0. The smoke test
 confirms CUDA compute capability 7.5 and a visible FAISS GPU before real work begins.
 
-#### Train-only calibration still required
+#### Train-only calibration
 
 The actual values must come from the real CLIP embeddings; they must not be guessed from literature
 or tuned on `val2017`.

@@ -110,7 +110,13 @@ def _parser() -> argparse.ArgumentParser:
 
     embed_visual = subcommands.add_parser(
         "embed-visual",
-        help="Generate frozen OpenCLIP image embeddings for canonical train2017",
+        help="Generate frozen OpenCLIP image embeddings (train2017, or val2017 for P5)",
+    )
+    embed_visual.add_argument(
+        "--split",
+        choices=["train2017", "val2017"],
+        default="train2017",
+        help="val2017 only produces P5 evaluation inputs; nothing is fitted from it",
     )
     embed_visual.add_argument("--output", type=Path, help="Override embedding .npy path")
     embed_visual.add_argument("--device", default="cuda:0")
@@ -340,9 +346,9 @@ def _analyze_category_balance(config: DataConfig, args: argparse.Namespace) -> d
     }
 
 
-def _visual_embedding_path(config: DataConfig) -> Path:
+def _visual_embedding_path(config: DataConfig, split: str = "train2017") -> Path:
     return config.visual_artifact_dir / (
-        "openclip_vit_b16_datacomp_xl_s13b_b90k_train2017.npy"
+        f"openclip_vit_b16_datacomp_xl_s13b_b90k_{split}.npy"
     )
 
 
@@ -373,13 +379,13 @@ def _benchmark_visual(config: DataConfig, args: argparse.Namespace) -> dict[str,
 
 
 def _embed_visual(config: DataConfig, args: argparse.Namespace) -> dict[str, object]:
-    if not config.train_manifest.is_file():
-        raise FileNotFoundError(
-            f"Canonical training manifest is missing: {config.train_manifest}. Run prepare first."
-        )
-    output = args.output or _visual_embedding_path(config)
+    manifest = config.train_manifest if args.split == "train2017" else config.val_manifest
+    if not manifest.is_file():
+        raise FileNotFoundError(f"Canonical manifest is missing: {manifest}. Run prepare first.")
+    output = args.output or _visual_embedding_path(config, args.split)
     return generate_frozen_clip_embeddings(
-        source_manifest=config.train_manifest,
+        split=args.split,
+        source_manifest=manifest,
         raw_root=config.raw_root,
         embeddings_path=output,
         project_root=config.project_root,

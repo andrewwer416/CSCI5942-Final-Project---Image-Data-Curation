@@ -1,18 +1,20 @@
 # Project Status
 
-**Last Updated**: 2026-11-24
+**Last Updated**: 2026-11-25
 
 ## Current focus
 
-Move the smoke-tested training pipeline to Alpine and find a workable 640×640 batch size, while
-resolving the remaining selection and preprocessing methods.
+Every selection (D1–D5) and preprocessing arm (P1–P5) is implemented and approved
+(`docs/study-methods.md`). On Alpine, COCO is downloaded and validated, batch 64 fits
+both P1 and P2, and eight of the eleven first-round runs are queued. Next: fix the Alpine run time
+(see Blockers), then add the D1×P3, D1×P4 and D1×P5 runs.
 
 ## Active work
 
 | Task | Status | Notes |
 |---|---|---|
 | Annotation acquisition | Complete | Official 2017 archive checksum verified |
-| Image acquisition | Partial | Andrew's machine: all 118,287 train JPEGs, validation deferred. Bill's laptop: smoke sample only (512 train / 128 val). Alpine: not downloaded |
+| Image acquisition | Partial | Andrew's machine: all 118,287 train and 5,000 val JPEGs, checksum-verified. Bill's laptop: smoke sample only (512 train / 128 val). Alpine: all downloaded and validated (job 36286482) |
 | Canonical manifests | Complete | 118,287 train and 5,000 validation records |
 | Random baseline selection | Complete | 15,000 records, seed 5942, stable-hash algorithm |
 | Category-balance analysis | Complete | Real train-count grid recommends 2.5% threshold / 4× cap |
@@ -23,9 +25,11 @@ resolving the remaining selection and preprocessing methods.
 | Recall@K evaluation | Complete | Both retrieval directions; hand-checked in unit tests |
 | Standard RGB preprocessing (P1) | Complete | Direct resize, fixed scale to [-1, 1] |
 | Aspect-ratio-preserving RGB (P2) | Complete | Centered letterbox, mid-gray padding, padding-only patches masked in attention; `docs/preprocessing-p2.md` |
-| Other preprocessing (P3–P5) | Not started | P5 can reuse the pinned OpenCLIP checkpoint |
+| Random resized crop (P3) | Complete | Image-relative ratio ×0.8–1.25, area 50–100%, stateless crops, P1 evaluation; 95.5% caption-consistent in the train-only audit; `docs/preprocessing-p3.md` |
+| Color and contrast normalization (P4) | Complete | Per-image Shades-of-Gray (p=6) white balance + luma 1–99% stretch, 2× caps, unfitted, same at evaluation; color-caption recall reported in every arm; `docs/preprocessing-p4.md` |
+| RGB + CLIP features (P5) | Complete | Frozen OpenCLIP vector, late fusion `projection(LayerNorm(CLS + W·clip))`, no gate, paired init with P1; val2017 CLIP cache built; `docs/preprocessing-p5.md` |
 | VLM model and training loop | Smoke-tested | Runs end to end on 4 GB; no full-length run yet |
-| Alpine job scripts | Written, not yet run on Alpine | `slurm/alpine/`: setup, batch probe, and one script per run for the 8 runs D1–D5×P1 (3 baseline seeds) and D1×P2; simulated locally end to end |
+| Alpine job scripts | Setup and probe done; 8 runs queued | `slurm/alpine/`: setup, batch probe, and one script per run for the 8 runs D1–D5×P1 (3 baseline seeds) and D1×P2. No scripts yet for D1×P3–P5 |
 
 ## Foundation progress
 
@@ -41,7 +45,9 @@ resolving the remaining selection and preprocessing methods.
 - [x] Pin and smoke-test the frozen OpenCLIP + GPU FAISS environment.
 - [x] Implement the model, training loop, P1 preprocessing, and Recall@K evaluation.
 - [x] Smoke-test training on a real image sample.
-- [ ] Resolve advanced selection and preprocessing decisions.
+- [x] Resolve and implement every selection (D1–D5) and preprocessing arm (P1–P5).
+- [x] Download and checksum-verify val2017; build the val2017 CLIP cache.
+- [x] Smoke-test all five arms end to end on real val2017 images.
 - [ ] Run the baseline (D1×P1) at full size on Alpine.
 
 ## Key metrics
@@ -55,7 +61,7 @@ resolving the remaining selection and preprocessing methods.
 | Category-balanced images | 15,000 unique | 15,000 unique |
 | Validation images | 5,000 | 5,000 |
 | Captions retained per image | 5 | 5 |
-| Synthetic tests | 102 passing in the locked environment | All passing |
+| Synthetic tests | 128 passing in the locked environment | All passing |
 
 ## Approved training choices
 
@@ -69,9 +75,8 @@ The local consolidation adds explicit model seeds, source hashes, selection vali
 and protection against overwriting completed runs. No full study training was launched.
 
 Andrew approved these training defaults, including the bidirectional text tower,
-constant learning rate without warmup/decay, and zero dropout. The actual study
-batch size remains subject to measurement at 640×640 on Alpine and must be held
-fixed across compared arms.
+constant learning rate without warmup/decay, and zero dropout. The study batch
+size (64) is held fixed across compared arms.
 
 | Choice | Value | Reason |
 |---|---|---|
@@ -84,27 +89,49 @@ fixed across compared arms.
 | Text pooling | Output at the `<eos>` position | Same as CLIP |
 | Image encoder width | 768 dimensions, 12 heads | Standard ViT-B size |
 | Mixed precision | On for GPU runs (`--no-amp` disables it) | Reduces GPU memory use |
-| Batch size | 64 for every arm | Delta A40 probe (job 24034477), 640 px, AMP: batch 32 = 19.0 GB, 0.91 s/step; batch 64 = 36.2 GB, 1.70 s/step; batch 96 out of memory. About 5–6 h per 40-epoch run on an A40 |
+| Batch size | 64 for every arm | Delta A40 probe (job 24034477), 640 px, AMP: batch 32 = 19.0 GB, 0.91 s/step; batch 64 = 36.2 GB, 1.70 s/step; batch 96 out of memory. About 5–6 h per 40-epoch run on an A40. Alpine A100 40 GB probe (job 36287488): P1 36.2 GB, P2 38.0 GB |
 
 Proposal values are used as written: ViT-B/16 at 640×640, 12-layer text Transformer with d=512,
 d_ff=2048, L=77, 40 epochs.
 
 ## Blockers
 
-- Full COCO train and validation images are not on Alpine yet; `slurm/alpine/00_setup.sbatch`
-  downloads and checks them. All five selections are tracked in Git, so cloning the repository
-  copies them.
-- P3–P5 details remain unapproved design choices.
+- **Alpine run time:** the Alpine probe measured 7.2 s/step for P1 and 5.7 s/step for P2 on an
+  A100 40 GB, against 1.70 s/step on the Delta A40. At that speed a 40-epoch run (9,375 steps)
+  needs 15–19 h, beyond the runs' 12 h limit, and training cannot resume. Reading images from
+  `/scratch` (NFS) is the suspected bottleneck and is being measured.
+- **P5 inputs:** the selections are in Git, but P5 also needs the CLIP caches. They are on a
+  temporary GitHub release (`handoff-clip-features-2026-11-25`) to copy to Alpine.
 
 ## Next steps
 
-1. Review the training choices above and the recorded visual calibration and duplicate-audit results.
-2. On Alpine: run `00_setup.sbatch`, confirm batch 64 with `01_probe.sbatch`, then submit the
-   eight runs (`slurm/alpine/README.md`).
-3. Implement P3–P4 preprocessing and add their run scripts.
-4. Resolve P5; review caption diagnostics.
+1. Fix the Alpine run time (see Blockers) before the eight queued runs start.
+2. Add Alpine run scripts for D1×P3, D1×P4, and D1×P5.
+3. Download `clip-features.zip` from the `handoff-clip-features-2026-11-25` release onto Alpine,
+   check its SHA-256 (`087c4406…a5f5`), and unpack it into `data/interim/visual/`. Then delete the
+   release.
 
 ## Recent completions
+
+### 2026-11-25 (Bill)
+
+- Alpine setup job (36286482): full COCO train and val downloaded, manifests built, and
+  `vlm-data validate --check-files` passed (118,287 train, 5,000 val, five 15,000-image selections).
+- Alpine probe (36287488, A100 PCIe 40 GB, batch 64, 20 steps): P1 peaks at 36.2 GB and P2 at
+  38.0 GB, so batch 64 fits both. The eight runs D1–D5×P1 (D1 with seeds 5942–5944) and D1×P2 are
+  queued behind it.
+
+### 2026-11-21 to 11-25 (Andrew)
+
+- **D5 quality-aware diversity:** TOPIQ-NR filter plus a quality bonus on D3's selector.
+  6,012 images differ from D3. See `docs/quality-aware-selection.md`.
+- **P2–P5:** implemented with decision records in `docs/preprocessing-p2.md` to `p5.md`, and an
+  overview in `docs/study-methods.md`.
+- **Evaluation:** every arm now also reports color-caption recall, and P5 adds zeroed and shuffled
+  CLIP diagnostics.
+- **val2017:** downloaded and verified, with its CLIP cache built. All five arms smoke-tested end
+  to end on real images.
+- **Handoff:** the CLIP caches are on a temporary GitHub release, verified by download and checksum.
 
 ### 2026-11-24 (Bill)
 

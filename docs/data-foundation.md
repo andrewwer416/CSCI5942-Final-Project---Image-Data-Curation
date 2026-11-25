@@ -2,8 +2,9 @@
 
 ## Scope
 
-This phase prepares auditable inputs for the study. It does not define the model, implement image
-transforms, generate pretrained embeddings, or download large archives automatically during tests.
+This document is the data contract: auditable inputs, manifests, selections and the leakage boundary.
+The model, image transforms and pretrained embeddings are documented separately (see
+`docs/study-methods.md`). Tests never download large archives.
 Official COCO archive links use HTTP; acquisition therefore verifies pinned byte counts and SHA-256
 digests before safe extraction.
 
@@ -63,8 +64,8 @@ The category-balanced manifest is paired with that exact random baseline. At lea
 selected IDs must be replacements, so at least 750 category-balanced IDs must be absent from the
 random set. This is a hard generation requirement: the command fails before writing a manifest if
 the target-driven swaps do not clear the floor, and it never pads the result with unrelated swaps.
-The current calibrated selection replaces 948 images (6.32%). The complete operational definition
-and future-method placeholders live in `data/processed/selections/README.md`.
+The current calibrated selection replaces 948 images (6.32%). The complete operational definitions
+of all five selections live in `data/processed/selections/README.md`.
 
 ## Caption sampling
 
@@ -83,22 +84,20 @@ or early stopping. The proposal uses validation performance to choose optional f
 that makes those follow-ups adaptive to `val2017`. The final report should call this out, or reserve
 an additional untouched evaluation split before running combinations.
 
-## Decisions required before advanced data generation
+## Method decisions (resolved)
 
-The proposal intentionally leaves several method definitions open. Pin these in configuration and
-record model revisions before creating derived artifacts:
+The proposal intentionally left several method definitions open. All are now approved and pinned.
+`docs/study-methods.md` gives the overview.
 
-1. Frozen CLIP checkpoint, preprocessing, embedding precision, and revision.
-2. Visual-diversity objective and scalable selection algorithm.
-3. Caption embedding model and how five captions become one image-level representation.
-4. Blur, visual-complexity, and resolution metrics plus quality/diversity weighting.
-5. Crop scale/aspect ranges, resize interpolation, padding value, and color-normalization formula.
-6. How the frozen 512-dimensional CLIP vector is fused into the randomly initialized VLM.
-7. Training, caption, data-loader, and weight-initialization seed policy.
-
-Until those choices are approved, generated embeddings and quality scores would look reproducible
-while encoding arbitrary scientific decisions. The current foundation therefore implements only the
-shared random baseline and the separately calibrated category-balancing method.
+| Open question | Resolution | Record |
+|---|---|---|
+| Frozen CLIP checkpoint, preprocessing, precision, revision | OpenCLIP ViT-B-16 `datacomp_xl_s13b_b90k`, revision `767e6d14…`, native 224-px transform, AMP FP16 inference, normalized float32 cache | `docs/visual-calibration-results.md` |
+| Visual-diversity objective and algorithm | Sparse facility location, exact GPU neighbors, lazy greedy, k = 50, duplicates at 0.99 | `docs/visual-calibration-results.md` |
+| Caption embedding and aggregation | Frozen MPNet, mean of five normalized caption vectors, k = 50 | `docs/caption-semantic-selection.md` |
+| Quality metrics and quality/diversity weighting | TOPIQ-NR filter (worst 0.25%, short side ≥ 192 px) plus a modular TOPIQ bonus, λ = 0.1099 | `docs/quality-aware-selection.md` |
+| Crop ranges, interpolation, padding, color normalization | P3 image-relative crop (×0.8–1.25, 50–100%); PIL bilinear everywhere; P2 mid-gray padding with masking; P4 per-image Shades-of-Gray plus a brightness stretch | `docs/preprocessing-p2.md` to `docs/preprocessing-p4.md` |
+| CLIP-vector fusion | Late fusion `projection(LayerNorm(CLS + W·clip))`, no gate, no dropout | `docs/preprocessing-p5.md` |
+| Seed policy | Selection, caption, data-order and crop seeds fixed at 5942. Model seeds 5942–5944 for baseline replicates | `STATUS.md` |
 
 See `background-research.md` for the literature review, concrete starting values, and train-only
 calibration checks proposed for these decisions.

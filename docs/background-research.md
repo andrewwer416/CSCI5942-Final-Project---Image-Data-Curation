@@ -1,8 +1,9 @@
 # Background Research and Initial Design Recommendations
 
 - **Project:** CSCI 5942 — COCO data selection for image–text retrieval
-- **Status:** Category balance calibrated; remaining methods are research-backed starting points
-- **Last updated:** 2026-11-07
+- **Status:** Historical research note. Every method has since been decided; final definitions are
+  in `docs/study-methods.md`, and several differ from the starting points below
+- **Last updated:** 2026-11-07 (outcome column added 2026-11-25)
 
 ## Purpose and decision rule
 
@@ -583,17 +584,17 @@ initialization uncertainty.
 Optional follow-up combinations chosen after inspecting `val2017` are adaptive to that validation
 set. They must be labeled exploratory, or evaluated on an additional untouched test split.
 
-## Decisions still requiring explicit approval
+## Decisions that required explicit approval (all now resolved)
 
-| Item | Proposed value | Needed before implementation |
+| Item | Proposed value | Approved outcome |
 |---|---|---|
-| Primary CLIP checkpoint | OpenCLIP B/16 DataComp | Pin package and exact weight revision |
-| Facility-location graph | cosine kNN, `k = 100` | Benchmark memory/time and `{50,100,200}` stability |
-| Caption encoder | `all-mpnet-base-v2` | Pin model revision and license metadata |
-| Quality filter/objective | bottom 5%; 80/20 | Validate metric distributions and normalize objective scales |
-| Crop range | `[0.70,1.00]`, `[0.80,1.25]` | Complete box/caption-retention audit |
-| Appearance normalization | SoG `p=6`, 1/99%, 2× cap | Complete color-word and artifact audit |
-| CLIP fusion | zero-gated residual projection | Confirm target model hidden width and control design |
+| Primary CLIP checkpoint | OpenCLIP B/16 DataComp | As proposed, pinned to revision `767e6d14…` |
+| Facility-location graph | cosine kNN, `k = 100` | `k = 50` after the train-only sweep |
+| Caption encoder | `all-mpnet-base-v2` | As proposed, `k = 50` |
+| Quality filter/objective | bottom 5%; 80/20 | TOPIQ-NR worst 0.25% plus a modular quality bonus, λ = 0.1099 (`docs/quality-aware-selection.md`) |
+| Crop range | `[0.70,1.00]`, `[0.80,1.25]` | Area `[0.50, 1.00]`, ratio ×`[0.80, 1.25]` *relative to each image*, bilinear (`docs/preprocessing-p3.md`) |
+| Appearance normalization | SoG `p=6`, 1/99%, 2× cap | As proposed but per-image only, with no fitted standardization (`docs/preprocessing-p4.md`) |
+| CLIP fusion | zero-gated residual projection | Late residual fusion *without* gate or dropout, with P1 as the control (`docs/preprocessing-p5.md`) |
 
 ## Primary references
 

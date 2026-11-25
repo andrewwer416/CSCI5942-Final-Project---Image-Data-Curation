@@ -7,6 +7,7 @@ except ImportError as error:
 
 from vlm_train.metrics import (
     image_to_text_ranks,
+    mentions_color,
     recall_at_k,
     retrieval_metrics,
     text_to_image_ranks,
@@ -59,6 +60,38 @@ class RetrievalMetricTests(unittest.TestCase):
     def test_mismatched_caption_count_is_rejected(self) -> None:
         with self.assertRaises(ValueError):
             retrieval_metrics(SIMILARITY, torch.tensor([0, 1, 2]))
+
+
+class ColorCaptionTests(unittest.TestCase):
+    def test_color_words_match_whole_words_only(self) -> None:
+        self.assertTrue(mentions_color("A Red bus on the street"))
+        self.assertTrue(mentions_color("a white-tailed deer"))
+        self.assertTrue(mentions_color("Grey cat"))
+        self.assertFalse(mentions_color("a redwood tree near reddish rocks"))
+        self.assertFalse(mentions_color("a dog on a couch"))
+
+    def test_subset_recall_uses_only_the_masked_caption_queries(self) -> None:
+        # Text-to-image ranks are [1, 3, 2, 1, 2, 2]; the subset keeps captions 1, 3, 5.
+        subset = torch.tensor([False, True, False, True, False, True])
+        metrics = retrieval_metrics(
+            SIMILARITY, CAPTION_TO_IMAGE, ks=(1, 2), caption_subsets={"color": subset}
+        )
+        self.assertEqual(metrics["color_caption_count"], 3.0)
+        self.assertAlmostEqual(metrics["t2i_recall@1_color"], 1 / 3)
+        self.assertAlmostEqual(metrics["t2i_recall@2_color"], 2 / 3)
+        self.assertAlmostEqual(metrics["t2i_recall@1"], 2 / 6)
+
+    def test_bad_subsets_are_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            retrieval_metrics(
+                SIMILARITY,
+                CAPTION_TO_IMAGE,
+                caption_subsets={"x": torch.zeros(6, dtype=torch.bool)},
+            )
+        with self.assertRaises(ValueError):
+            retrieval_metrics(
+                SIMILARITY, CAPTION_TO_IMAGE, caption_subsets={"x": torch.ones(5, dtype=torch.bool)}
+            )
 
 
 if __name__ == "__main__":

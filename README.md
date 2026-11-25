@@ -1,9 +1,10 @@
 # COCO Data Selection for Image–Text Retrieval
 
-Foundation for the CSCI 5942 study, **Can Data Selection and Preprocessing Improve
-Image–Text Retrieval?** The immediate goal is a reproducible data layer: immutable COCO
-2017 inputs, deterministic manifests, an exact 15,000-image training subset, and leakage
-checks before model code is added.
+Code and data pipeline for the CSCI 5942 study, **Can Data Selection and Preprocessing Improve
+Image–Text Retrieval?** It covers immutable COCO 2017 inputs, deterministic manifests, five
+15,000-image training selections (D1–D5), five preprocessing arms (P1–P5), a from-scratch
+retrieval model, and leakage checks. All methods are implemented and ready for the first round of
+training. Final definitions are in [`docs/study-methods.md`](docs/study-methods.md).
 
 The assignment proposal remains the source for the study design. Machine-readable constants
 live in `configs/data.toml`, and the nine initial runs are enumerated in
@@ -78,14 +79,26 @@ the selection README.
 | Quality-aware diversity | Calibrated: TOPIQ filter + quality term on D3, λ=0.1099 | `data/processed/selections/` |
 | Standard RGB preprocessing (P1) | Ready | `src/vlm_train/data.py` |
 | Aspect-ratio-preserving preprocessing (P2) | Ready: letterbox, mid-gray padding, padded patches masked | `src/vlm_train/data.py`, `docs/preprocessing-p2.md` |
-| Other preprocessing modes (P3–P5) | Not started | — |
+| Random resized crop (P3) | Ready: image-relative ratio ×0.8–1.25, area 50–100%, P1 evaluation | `src/vlm_train/data.py`, `docs/preprocessing-p3.md` |
+| Color and contrast normalization (P4) | Ready: per-image Shades-of-Gray white balance + brightness stretch, 2× caps, also at evaluation | `src/vlm_train/data.py`, `docs/preprocessing-p4.md` |
+| RGB + CLIP features (P5) | Ready: frozen OpenCLIP vector, late fusion before the final LayerNorm, zeroed/shuffled diagnostics | `src/vlm_train/model.py`, `docs/preprocessing-p5.md` |
 | VLM model, training loop, Recall@K | Ready; smoke-tested only | `artifacts/<run>/` |
 
 ## Training
 
 `src/vlm_train/` trains one selection/preprocessing configuration and reports Recall@K on val2017.
-P1 and P2 preprocessing exist so far (`--preprocessing`). Progress, smoke-test results, and the training choices awaiting
-review are in `STATUS.md`.
+All five preprocessing arms are available through `--preprocessing`:
+
+| Flag value | Arm |
+|---|---|
+| `standard_rgb` | P1 (default) |
+| `aspect_ratio_preserving_rgb` | P2 |
+| `random_resized_crop` | P3 |
+| `color_contrast_normalization` | P4 |
+| `rgb_plus_clip_features` | P5 |
+
+P5 needs the train and val CLIP caches in `data/interim/visual/`. Final method definitions are in
+`docs/study-methods.md`. Progress and the approved training choices are in `STATUS.md`.
 
 The smoke test uses a small image sample kept apart from the official files
 (`data/raw/coco_smoke/`, Git-ignored). After `prepare` and `select --method random`:
@@ -104,8 +117,13 @@ A full run uses the official image folder and the configured 640 px and 40 epoch
 ```bash
 PYTHONPATH=src python3 -m vlm_train.train \
   --selection data/processed/selections/random_seed5942_n15000.jsonl \
+  --preprocessing standard_rgb \
   --output-dir artifacts/random__standard_rgb --batch-size 64 --save-checkpoint
 ```
+
+Run directories follow the `configs/experiment_matrix.toml` run IDs, such as
+`artifacts/random__random_resized_crop`. P5 adds zeroed and shuffled CLIP diagnostics to its
+final-epoch metrics, and every run reports color-caption recall (`t2i_recall@K_color`).
 
 The study runs on CURC Alpine with one Slurm job per run: see
 [`slurm/alpine/README.md`](slurm/alpine/README.md). `slurm/delta/` holds the NCSA Delta scripts
@@ -117,7 +135,7 @@ Category balancing now uses the approved square-root frequency targets. A reprod
 sensitivity report selects the 2.5% threshold and 4× safety cap under a 14%-of-budget target-mass
 guardrail. A hard generation check requires at least 5% of the selected images to differ from the
 paired random baseline; the real selection changes 6.32% without arbitrary padding swaps.
-The full method contract and placeholders for unresolved selectors are in
+The full selection contract for D1–D5 is in
 [`data/processed/selections/README.md`](data/processed/selections/README.md).
 
 ## Data layout

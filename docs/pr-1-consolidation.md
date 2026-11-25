@@ -1,5 +1,9 @@
 # PR #1 consolidation and proposed response
 
+> **Update 2026-11-25:** the items below marked unapproved (quality-aware selection, P2–P4
+> settings, P5 fusion) have since been decided and implemented. See `docs/study-methods.md`. This
+> note is kept as the historical record of the PR #1 review.
+
 PR: https://github.com/andrewwer416/CSCI5942-Final-Project---Image-Data-Curation/pull/1
 
 The local integration branch combines Bill's training work with Andrew's completed

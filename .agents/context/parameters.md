@@ -10,15 +10,19 @@ choices selected by `vlm-data analyze-category-balance`, not literature constant
 grid, 14%-of-budget intervention guardrail, and 5% minimum-change requirement also live in
 `configs/data.toml`.
 
-The following are intentionally unresolved and have no authoritative value yet:
+Approved method parameters are versioned constants in code and recorded in every artifact's or
+run's metadata:
 
-- CLIP checkpoint and revision;
-- embedding aggregation and diversity algorithm;
-- quality metrics and weights;
-- random-resized-crop ranges;
-- resize interpolation and padding policy;
-- color/contrast normalization formula; and
-- auxiliary-feature fusion design.
+| Method | Where the values live |
+|---|---|
+| D3 visual diversity (CLIP checkpoint, k, duplicate cutoff, outlier cap) | `src/vlm_data/visual_embeddings.py`, `configs/data.toml` |
+| D4 caption-semantic diversity | `src/vlm_data/` caption modules, `configs/data.toml` |
+| D5 quality-aware diversity (TOPIQ filter, λ rule, gates) | `scripts/calibrate_quality.py` constants |
+| P2 letterbox and padding mask | `src/vlm_train/data.py` (`letterbox_geometry`, `padding_patch_mask`) |
+| P3 crop ranges | `src/vlm_train/data.py` (`CROP_*`) |
+| P4 appearance normalization | `src/vlm_train/data.py` (`SHADES_OF_GRAY_P`, `*_GAIN_CAP`, `CONTRAST_PERCENTILES`) |
+| P5 fusion | `src/vlm_train/model.py` (`ModelConfig.clip_dim`, `clip_projection`) |
+| Training defaults | `src/vlm_train/train.py` CLI defaults (batch size still to be measured) |
 
-Approve each choice, put its machine value in a focused config file, and record a method/version in
-derived-artifact metadata.
+Changing any of these is a new method version: update the version constant and its document, and
+re-run the relevant audit or calibration.
