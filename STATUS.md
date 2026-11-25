@@ -6,8 +6,8 @@
 
 Every selection (D1–D5) and preprocessing arm (P1–P5) is implemented and approved
 (`docs/study-methods.md`). On Alpine, COCO is downloaded and validated, batch 64 fits
-both P1 and P2, and eight of the eleven first-round runs are queued. Next: fix the Alpine run time
-(see Blockers), then add the D1×P3, D1×P4 and D1×P5 runs.
+both P1 and P2, and eight of the eleven first-round runs are queued. Next: confirm the Alpine step
+time with node-local images (see Blockers), then add the D1×P3, D1×P4 and D1×P5 runs.
 
 ## Active work
 
@@ -96,16 +96,19 @@ d_ff=2048, L=77, 40 epochs.
 
 ## Blockers
 
-- **Alpine run time:** the Alpine probe measured 7.2 s/step for P1 and 5.7 s/step for P2 on an
-  A100 40 GB, against 1.70 s/step on the Delta A40. At that speed a 40-epoch run (9,375 steps)
-  needs 15–19 h, beyond the runs' 12 h limit, and training cannot resume. Reading images from
-  `/scratch` (NFS) is the suspected bottleneck and is being measured.
+- **Alpine run time (fix in place, not yet confirmed on a full run):** the Alpine probe measured
+  7.2 s/step for P1 and 5.7 s/step for P2 on an A100 40 GB, against 1.70 s/step on the Delta A40.
+  At that speed a 40-epoch run (9,375 steps) would need 15–19 h, beyond the runs' 12 h limit, and
+  training cannot resume. An I/O test (job 36356658) traced it to opening small files on `/scratch`
+  (NFS, about 20 images/s). Each run now extracts its images from the COCO zips onto node-local
+  disk first (89 s, then about 1,100 images/s; job 36359410). The first queued run will confirm the
+  step time.
 - **P5 inputs:** the selections are in Git, but P5 also needs the CLIP caches. They are on a
   temporary GitHub release (`handoff-clip-features-2026-11-25`) to copy to Alpine.
 
 ## Next steps
 
-1. Fix the Alpine run time (see Blockers) before the eight queued runs start.
+1. Check the first queued run's step time with node-local images (see Blockers).
 2. Add Alpine run scripts for D1×P3, D1×P4, and D1×P5.
 3. Download `clip-features.zip` from the `handoff-clip-features-2026-11-25` release onto Alpine,
    check its SHA-256 (`087c4406…a5f5`), and unpack it into `data/interim/visual/`. Then delete the
