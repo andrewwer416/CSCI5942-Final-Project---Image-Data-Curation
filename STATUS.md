@@ -1,18 +1,19 @@
 # Project Status
 
-**Last Updated**: 2026-11-22
+**Last Updated**: 2026-11-25
 
 ## Current focus
 
-Move the smoke-tested training pipeline to Alpine and find a workable 640×640 batch size, while
-resolving the remaining selection and preprocessing methods.
+Every selection (D1–D5) and preprocessing arm (P1–P5) is implemented and approved
+(`docs/study-methods.md`). Next: move to Alpine, measure a workable 640×640 batch size, and train
+the nine first-round runs plus the two extra baseline seeds.
 
 ## Active work
 
 | Task | Status | Notes |
 |---|---|---|
 | Annotation acquisition | Complete | Official 2017 archive checksum verified |
-| Image acquisition | Partial | Andrew's machine: all 118,287 train JPEGs, validation deferred. Bill's laptop: smoke sample only (512 train / 128 val). Alpine: not downloaded |
+| Image acquisition | Partial | Andrew's machine: all 118,287 train and 5,000 val JPEGs, checksum-verified. Bill's laptop: smoke sample only (512 train / 128 val). Alpine: not downloaded |
 | Canonical manifests | Complete | 118,287 train and 5,000 validation records |
 | Random baseline selection | Complete | 15,000 records, seed 5942, stable-hash algorithm |
 | Category-balance analysis | Complete | Real train-count grid recommends 2.5% threshold / 4× cap |
@@ -23,7 +24,9 @@ resolving the remaining selection and preprocessing methods.
 | Recall@K evaluation | Complete | Both retrieval directions; hand-checked in unit tests |
 | Standard RGB preprocessing (P1) | Complete | Direct resize, fixed scale to [-1, 1] |
 | Aspect-ratio-preserving RGB (P2) | Complete | Centered letterbox, mid-gray padding, padding-only patches masked in attention; `docs/preprocessing-p2.md` |
-| Other preprocessing (P3–P5) | Not started | P5 can reuse the pinned OpenCLIP checkpoint |
+| Random resized crop (P3) | Complete | Image-relative ratio ×0.8–1.25, area 50–100%, stateless crops, P1 evaluation; 95.5% caption-consistent in the train-only audit; `docs/preprocessing-p3.md` |
+| Color and contrast normalization (P4) | Complete | Per-image Shades-of-Gray (p=6) white balance + luma 1–99% stretch, 2× caps, unfitted, same at evaluation; color-caption recall reported in every arm; `docs/preprocessing-p4.md` |
+| RGB + CLIP features (P5) | Complete | Frozen OpenCLIP vector, late fusion `projection(LayerNorm(CLS + W·clip))`, no gate, paired init with P1; val2017 CLIP cache built; `docs/preprocessing-p5.md` |
 | VLM model and training loop | Smoke-tested | Runs end to end on 4 GB; no full-length run yet |
 | Alpine job scripts | Not started | — |
 
@@ -41,7 +44,9 @@ resolving the remaining selection and preprocessing methods.
 - [x] Pin and smoke-test the frozen OpenCLIP + GPU FAISS environment.
 - [x] Implement the model, training loop, P1 preprocessing, and Recall@K evaluation.
 - [x] Smoke-test training on a real image sample.
-- [ ] Resolve advanced selection and preprocessing decisions.
+- [x] Resolve and implement every selection (D1–D5) and preprocessing arm (P1–P5).
+- [x] Download and checksum-verify val2017; build the val2017 CLIP cache.
+- [x] Smoke-test all five arms end to end on real val2017 images.
 - [ ] Run the baseline (D1×P1) at full size on Alpine.
 
 ## Key metrics
@@ -55,7 +60,7 @@ resolving the remaining selection and preprocessing methods.
 | Category-balanced images | 15,000 unique | 15,000 unique |
 | Validation images | 5,000 | 5,000 |
 | Captions retained per image | 5 | 5 |
-| Synthetic tests | 102 passing in the locked environment | All passing |
+| Synthetic tests | 128 passing in the locked environment | All passing |
 
 ## Approved training choices
 
@@ -91,23 +96,34 @@ d_ff=2048, L=77, 40 epochs.
 
 ## Blockers
 
-- Full COCO train and validation images are not on Alpine; validation images are needed for model
-  evaluation.
-- The visual and caption-semantic selections exist on Andrew's machine and must be copied to the training
-  machine.
+- Full COCO train and validation images are not on Alpine.
 - Alpine job scripts do not exist yet.
-- P3–P5 details remain unapproved design choices.
+- **P5 inputs:** the selections are in Git, but P5 also needs the CLIP caches. They are on a
+  temporary GitHub release (`handoff-clip-features-2026-11-25`) to copy to Alpine.
 
 ## Next steps
 
-1. Review the training choices above and the recorded visual calibration and duplicate-audit results.
+1. Merge PR #3 (P3–P5 and docs; D5 and P2 were merged in PR #2).
 2. Download the full COCO images on Alpine and run `vlm-data validate --check-files`.
-3. Run a short Alpine job to find a workable batch size at 640×640, then train the D1×P1 baseline.
-4. Copy visual and caption-semantic selections and metadata to Alpine with checksums.
-5. Implement P3–P4 preprocessing.
-6. Copy the quality-aware selection to Alpine; resolve P5; review caption diagnostics.
+3. Download `clip-features.zip` from the `handoff-clip-features-2026-11-25` release, check its
+   SHA-256 (`087c4406…a5f5`), and unpack it into `data/interim/visual/`. Then delete the release.
+4. Run a short Alpine job to find a workable batch size at 640×640 and hold it fixed across arms.
+5. Train D1×P1 with model seeds 5942–5944, then the other eight first-round runs (see
+   `configs/experiment_matrix.toml`).
 
 ## Recent completions
+
+### 2026-11-21 to 11-25 (Andrew)
+
+- **D5 quality-aware diversity:** TOPIQ-NR filter plus a quality bonus on D3's selector.
+  6,012 images differ from D3. See `docs/quality-aware-selection.md`.
+- **P2–P5:** implemented with decision records in `docs/preprocessing-p2.md` to `p5.md`, and an
+  overview in `docs/study-methods.md`.
+- **Evaluation:** every arm now also reports color-caption recall, and P5 adds zeroed and shuffled
+  CLIP diagnostics.
+- **val2017:** downloaded and verified, with its CLIP cache built. All five arms smoke-tested end
+  to end on real images.
+- **Handoff:** the CLIP caches are on a temporary GitHub release, verified by download and checksum.
 
 ### 2026-11-08 (Bill)
 

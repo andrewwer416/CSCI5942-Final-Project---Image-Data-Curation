@@ -17,13 +17,27 @@ from vlm_data.io import sha256_file, write_json_atomic
 from vlm_data.manifest import read_manifest
 from vlm_data.validation import validate_manifest
 from vlm_train.data import (
+    APPEARANCE_ALGORITHM_VERSION,
+    CLIP_PREPROCESSING,
+    ClipFeatureTable,
+    COLOR_CONTRAST_NORMALIZATION,
+    CONTRAST_GAIN_CAP,
+    CONTRAST_PERCENTILES,
+    SHADES_OF_GRAY_P,
+    WHITE_BALANCE_GAIN_CAP,
+    CROP_ALGORITHM_VERSION,
+    CROP_ATTEMPTS,
+    CROP_MIN_SCALE,
+    CROP_RATIO_JITTER,
+    EVAL_PREPROCESSING,
     MASKED_PREPROCESSING,
+    RANDOM_RESIZED_CROP,
     PREPROCESSING_CHOICES,
     STANDARD_RGB,
     EvalRetrievalDataset,
     TrainRetrievalDataset,
 )
-from vlm_train.metrics import retrieval_metrics
+from vlm_train.metrics import mentions_color, retrieval_metrics
 from vlm_train.model import ModelConfig, RetrievalModel, contrastive_loss
 from vlm_train.tokenizer import Vocabulary
 
@@ -62,7 +76,22 @@ def _parser() -> argparse.ArgumentParser:
         type=int,
         help="Weight initialization seed; caption/order seeds stay paired from config",
     )
+    parser.add_argument(
+        "--clip-train-metadata",
+        type=Path,
+        help="P5 train2017 CLIP cache metadata (default: config visual artifact dir)",
+    )
+    parser.add_argument(
+        "--clip-val-metadata",
+        type=Path,
+        help="P5 val2017 CLIP cache metadata (default: config visual artifact dir)",
+    )
     return parser
+
+
+CLIP_CACHE_STEM = "openclip_vit_b16_datacomp_xl_s13b_b90k"
+# P5 final-epoch diagnostics: evaluate with zeroed and with deranged CLIP vectors.
+CLIP_DIAGNOSTIC_MODES = ("zeroed_clip", "shuffled_clip")
 
 
 @torch.no_grad()
@@ -73,26 +102,39 @@ def evaluate(
     device: torch.device,
     use_amp: bool,
     masked: bool,
+    color_captions: torch.Tensor | None = None,
+    use_clip: bool = False,
+    zero_clip: bool = False,
 ) -> dict[str, float]:
-    """Embed every image and caption, then score all pairs on the CPU."""
+    """Embed every image and caption, then score all pairs on the CPU.
+
+    With ``use_clip`` the model receives each image's CLIP vector from the loader;
+    ``zero_clip`` replaces those vectors with zeros (a P5 diagnostic).
+    """
 
     model.eval()
     image_batches: list[torch.Tensor] = []
     text_batches: list[torch.Tensor] = []
     captions_per_image = 0
-    for images, patch_mask, tokens in loader:
+    for images, patch_mask, clip_vectors, tokens in loader:
         captions_per_image = tokens.size(1)
         flat_tokens = tokens.flatten(0, 1).to(device, non_blocking=True)
         mask = patch_mask.to(device, non_blocking=True) if masked else None
+        clip = clip_vectors.to(device, non_blocking=True) if use_clip else None
+        if clip is not None and zero_clip:
+            clip = torch.zeros_like(clip)
         with torch.autocast(device.type, enabled=use_amp):
-            image_embeddings = model.encode_image(images.to(device, non_blocking=True), mask)
+            image_embeddings = model.encode_image(images.to(device, non_blocking=True), mask, clip)
             text_embeddings = model.encode_text(flat_tokens)
         image_batches.append(image_embeddings.float().cpu())
         text_batches.append(text_embeddings.float().cpu())
     image_embeddings = torch.cat(image_batches)
     text_embeddings = torch.cat(text_batches)
     caption_to_image = torch.arange(image_embeddings.size(0)).repeat_interleave(captions_per_image)
-    return retrieval_metrics(image_embeddings @ text_embeddings.t(), caption_to_image)
+    subsets = {"color": color_captions} if color_captions is not None else None
+    return retrieval_metrics(
+        image_embeddings @ text_embeddings.t(), caption_to_image, caption_subsets=subsets
+    )
 
 
 def train(args: argparse.Namespace) -> dict[str, float]:
@@ -105,6 +147,7 @@ def train(args: argparse.Namespace) -> dict[str, float]:
     model_seed = config.seed if args.model_seed is None else args.model_seed
     # Unpadded arms pass no mask, so their attention path is exactly P1's.
     masked = args.preprocessing in MASKED_PREPROCESSING
+    use_clip = args.preprocessing in CLIP_PREPROCESSING
     torch.manual_seed(model_seed)
     if (args.output_dir / "run_config.json").exists() or (
         args.output_dir / "metrics.jsonl"
@@ -135,6 +178,34 @@ def train(args: argparse.Namespace) -> dict[str, float]:
         min_frequency=args.min_word_frequency,
     )
 
+    train_clip = val_clip = shuffled_val_clip = None
+    clip_artifacts = None
+    if use_clip:
+        train_clip_metadata = args.clip_train_metadata or (
+            config.visual_artifact_dir / f"{CLIP_CACHE_STEM}_train2017.meta.json"
+        )
+        val_clip_metadata = args.clip_val_metadata or (
+            config.visual_artifact_dir / f"{CLIP_CACHE_STEM}_val2017.meta.json"
+        )
+        train_clip = ClipFeatureTable.from_artifact(
+            train_clip_metadata, source_manifest=config.train_manifest
+        )
+        val_clip = ClipFeatureTable.from_artifact(
+            val_clip_metadata, source_manifest=config.val_manifest
+        )
+        shuffled_val_clip = val_clip.deranged(
+            [record.image_id for record in val_records], seed=config.seed
+        )
+        clip_artifacts = {
+            "train_metadata": str(train_clip_metadata),
+            "train_metadata_sha256": sha256_file(train_clip_metadata),
+            "val_metadata": str(val_clip_metadata),
+            "val_metadata_sha256": sha256_file(val_clip_metadata),
+            "fusion": "projection(LayerNorm(CLS + W clip)), W 512->768, no bias, Xavier",
+            "diagnostics": list(CLIP_DIAGNOSTIC_MODES),
+            "shuffle_seed": config.seed,
+        }
+
     train_dataset = TrainRetrievalDataset(
         train_records,
         image_root=image_root,
@@ -142,6 +213,11 @@ def train(args: argparse.Namespace) -> dict[str, float]:
         seed=config.seed,
         image_size=image_size,
         preprocessing=args.preprocessing,
+        clip_features=train_clip,
+    )
+    # Caption order matches EvalRetrievalDataset: each record's captions, records in order.
+    color_captions = torch.tensor(
+        [mentions_color(caption.text) for record in val_records for caption in record.captions]
     )
     val_dataset = EvalRetrievalDataset(
         val_records,
@@ -149,6 +225,7 @@ def train(args: argparse.Namespace) -> dict[str, float]:
         vocabulary=vocabulary,
         image_size=image_size,
         preprocessing=args.preprocessing,
+        clip_features=val_clip,
     )
     shuffle_generator = torch.Generator()
     train_loader = DataLoader(
@@ -166,6 +243,21 @@ def train(args: argparse.Namespace) -> dict[str, float]:
         num_workers=args.num_workers,
         pin_memory=device.type == "cuda",
     )
+    shuffled_val_loader = None
+    if use_clip:
+        shuffled_val_loader = DataLoader(
+            EvalRetrievalDataset(
+                val_records,
+                image_root=image_root,
+                vocabulary=vocabulary,
+                image_size=image_size,
+                preprocessing=args.preprocessing,
+                clip_features=shuffled_val_clip,
+            ),
+            batch_size=args.batch_size,
+            num_workers=args.num_workers,
+            pin_memory=device.type == "cuda",
+        )
     if len(train_loader) == 0:
         raise ValueError("batch size is larger than the number of training records")
 
@@ -174,6 +266,7 @@ def train(args: argparse.Namespace) -> dict[str, float]:
         pad_id=vocabulary.pad_id,
         eos_id=vocabulary.eos_id,
         image_size=image_size,
+        clip_dim=train_clip.dimension if train_clip is not None else 0,
     )
     model = RetrievalModel(model_config).to(device)
     optimizer = torch.optim.AdamW(
@@ -187,7 +280,27 @@ def train(args: argparse.Namespace) -> dict[str, float]:
         {
             "selection": str(args.selection),
             "preprocessing": args.preprocessing,
+            "eval_preprocessing": EVAL_PREPROCESSING.get(args.preprocessing, args.preprocessing),
             "padding_masked": masked,
+            "clip_features": clip_artifacts,
+            "crop": {
+                "algorithm_version": CROP_ALGORITHM_VERSION,
+                "min_scale": CROP_MIN_SCALE,
+                "ratio_jitter_relative_to_image": list(CROP_RATIO_JITTER),
+                "attempts": CROP_ATTEMPTS,
+                "seed": config.seed,
+            }
+            if args.preprocessing == RANDOM_RESIZED_CROP
+            else None,
+            "appearance": {
+                "algorithm_version": APPEARANCE_ALGORITHM_VERSION,
+                "shades_of_gray_p": SHADES_OF_GRAY_P,
+                "white_balance_gain_cap": WHITE_BALANCE_GAIN_CAP,
+                "contrast_percentiles": list(CONTRAST_PERCENTILES),
+                "contrast_gain_cap": CONTRAST_GAIN_CAP,
+            }
+            if args.preprocessing == COLOR_CONTRAST_NORMALIZATION
+            else None,
             "seed": config.seed,
             "model_seed": model_seed,
             "caption_seed": config.seed,
@@ -231,13 +344,14 @@ def train(args: argparse.Namespace) -> dict[str, float]:
         shuffle_generator.manual_seed(config.seed + epoch)
         started = time.perf_counter()
         total_loss = 0.0
-        for step, (images, patch_mask, tokens) in enumerate(train_loader, start=1):
+        for step, (images, patch_mask, clip_vectors, tokens) in enumerate(train_loader, start=1):
             images = images.to(device, non_blocking=True)
             tokens = tokens.to(device, non_blocking=True)
             mask = patch_mask.to(device, non_blocking=True) if masked else None
+            clip = clip_vectors.to(device, non_blocking=True) if use_clip else None
             optimizer.zero_grad(set_to_none=True)
             with torch.autocast(device.type, enabled=use_amp):
-                loss = contrastive_loss(model(images, tokens, mask))
+                loss = contrastive_loss(model(images, tokens, mask, clip))
             if not math.isfinite(loss.item()):
                 raise RuntimeError(f"Loss became {loss.item()} at epoch {epoch} step {step}")
             scaler.scale(loss).backward()
@@ -252,13 +366,28 @@ def train(args: argparse.Namespace) -> dict[str, float]:
                 )
         train_seconds = time.perf_counter() - started
 
+        evaluation = dict(
+            device=device,
+            use_amp=use_amp,
+            masked=masked,
+            color_captions=color_captions if color_captions.any() else None,
+            use_clip=use_clip,
+        )
         result = {
             "epoch": epoch,
             "train_loss": total_loss / len(train_loader),
             "train_seconds": train_seconds,
             "seconds_per_step": train_seconds / len(train_loader),
-            **evaluate(model, val_loader, device=device, use_amp=use_amp, masked=masked),
+            **evaluate(model, val_loader, **evaluation),
         }
+        if use_clip and epoch == epochs - 1:
+            # Reporting only: these never feed back into any training or method choice.
+            diagnostics = {
+                "zeroed_clip": evaluate(model, val_loader, zero_clip=True, **evaluation),
+                "shuffled_clip": evaluate(model, shuffled_val_loader, **evaluation),
+            }
+            for mode, metrics in diagnostics.items():
+                result.update({f"{mode}/{name}": value for name, value in metrics.items()})
         if device.type == "cuda":
             result["peak_gpu_memory_mib"] = torch.cuda.max_memory_allocated(device) / 2**20
         with log_path.open("a", encoding="utf-8") as handle:
