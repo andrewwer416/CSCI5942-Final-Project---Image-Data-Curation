@@ -71,12 +71,12 @@ All were approved by Andrew. Rationale is in each method document.
 - **Nothing is on Alpine yet:** not the images, the selections, the CLIP caches or the job scripts.
 - **Unconfirmed work split:** the proposal was Bill on P2–P4 and the Alpine scripts, Andrew on P5.
   All five arms are now implemented.
-- **Pending review:** all work is in PR #2 (branch `andrew/quality-aware-selection`), awaiting
-  Bill's review.
+- **Pending review:** D5 and P2 were merged to `main` in PR #2 (2026-11-24). P3–P5 and the
+  documentation updates are in PR #3 (branch `andrew/preprocessing-p3-p5`), awaiting Bill's review.
 
 ### Environment
 
-- **Branch:** `andrew/quality-aware-selection` (PR #2). Remote:
+- **Branch:** `andrew/preprocessing-p3-p5` (PR #3). Remote:
   `andrewwer416/CSCI5942-Final-Project---Image-Data-Curation`.
 - **Commands:** run with `export PATH=$PWD/.pixi-home/bin:$PATH` and `PYTHONPATH=src`. CLIP
   commands also need `HF_HUB_OFFLINE=1`.
@@ -85,7 +85,7 @@ All were approved by Andrew. Rationale is in each method document.
 
 ## Next session
 
-1. Get PR #2 reviewed and merged.
+1. Get PR #3 reviewed and merged.
 2. On Alpine:
    - fetch the selections from Git and the CLIP bundle from the release, and check its SHA-256;
    - download the train and val images;

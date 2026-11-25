@@ -103,7 +103,7 @@ d_ff=2048, L=77, 40 epochs.
 
 ## Next steps
 
-1. Merge PR #2.
+1. Merge PR #3 (P3–P5 and docs; D5 and P2 were merged in PR #2).
 2. Download the full COCO images on Alpine and run `vlm-data validate --check-files`.
 3. Download `clip-features.zip` from the `handoff-clip-features-2026-11-25` release, check its
    SHA-256 (`087c4406…a5f5`), and unpack it into `data/interim/visual/`. Then delete the release.
