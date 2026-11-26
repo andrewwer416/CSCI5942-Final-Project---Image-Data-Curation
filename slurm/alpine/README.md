@@ -81,6 +81,9 @@ tail -f artifacts/logs/mega-D1P1-s5942-<jobid>.out
 
 # 6. When runs finish, copy results to /projects, which is backed up and never purged.
 rsync -av artifacts/runs artifacts/logs /projects/$USER/mega-results/
+
+# 7. Summarize: final-epoch Recall@K, D1xP1 seed spread, curves -> reports/results/
+python3 scripts/analyze_runs.py --runs artifacts/runs
 ```
 
 ## Settings to check
