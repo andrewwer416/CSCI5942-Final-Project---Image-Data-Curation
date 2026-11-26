@@ -1,13 +1,14 @@
 # Project Status
 
-**Last Updated**: 2026-11-25
+**Last Updated**: 2026-11-26
 
 ## Current focus
 
 Every selection (D1–D5) and preprocessing arm (P1–P5) is implemented and approved
 (`docs/study-methods.md`). On Alpine, COCO is downloaded and validated, batch 64 fits
-both P1 and P2, and eight of the eleven first-round runs are queued. Next: confirm the Alpine step
-time with node-local images (see Blockers), then add the D1×P3, D1×P4 and D1×P5 runs.
+both P1 and P2, and the first eight of the eleven first-round runs ran at 0.8 s/step without
+errors. Scripts for the last three (D1×P3, D1×P4, D1×P5) are ready. Next: back up and analyze the
+eight runs, put the CLIP caches on Alpine, and submit the last three.
 
 ## Active work
 
@@ -28,8 +29,8 @@ time with node-local images (see Blockers), then add the D1×P3, D1×P4 and D1×
 | Random resized crop (P3) | Complete | Image-relative ratio ×0.8–1.25, area 50–100%, stateless crops, P1 evaluation; 95.5% caption-consistent in the train-only audit; `docs/preprocessing-p3.md` |
 | Color and contrast normalization (P4) | Complete | Per-image Shades-of-Gray (p=6) white balance + luma 1–99% stretch, 2× caps, unfitted, same at evaluation; color-caption recall reported in every arm; `docs/preprocessing-p4.md` |
 | RGB + CLIP features (P5) | Complete | Frozen OpenCLIP vector, late fusion `projection(LayerNorm(CLS + W·clip))`, no gate, paired init with P1; val2017 CLIP cache built; `docs/preprocessing-p5.md` |
-| VLM model and training loop | Smoke-tested | Runs end to end on 4 GB; no full-length run yet |
-| Alpine job scripts | Setup and probe done; 8 runs queued | `slurm/alpine/`: setup, batch probe, and one script per run for the 8 runs D1–D5×P1 (3 baseline seeds) and D1×P2. No scripts yet for D1×P3–P5 |
+| VLM model and training loop | Full runs done | 40-epoch runs on the Alpine A100 at batch 64: 0.78–0.81 s/step (P2 1.04 s), 2.5–3 h each |
+| Alpine job scripts | All 11 first-round runs scripted; runs 01–08 done or running | `slurm/alpine/`: setup, batch probe, and one script per run: D1–D5×P1 (3 baseline seeds), D1×P2, and D1×P3–P5 (run 11 needs the CLIP caches). `submit_runs.sh` skips runs that already have results |
 
 ## Foundation progress
 
@@ -48,7 +49,7 @@ time with node-local images (see Blockers), then add the D1×P3, D1×P4 and D1×
 - [x] Resolve and implement every selection (D1–D5) and preprocessing arm (P1–P5).
 - [x] Download and checksum-verify val2017; build the val2017 CLIP cache.
 - [x] Smoke-test all five arms end to end on real val2017 images.
-- [ ] Run the baseline (D1×P1) at full size on Alpine.
+- [x] Run the baseline (D1×P1) at full size on Alpine (3 seeds).
 
 ## Key metrics
 
@@ -96,25 +97,28 @@ d_ff=2048, L=77, 40 epochs.
 
 ## Blockers
 
-- **Alpine run time (fix in place, not yet confirmed on a full run):** the Alpine probe measured
-  7.2 s/step for P1 and 5.7 s/step for P2 on an A100 40 GB, against 1.70 s/step on the Delta A40.
-  At that speed a 40-epoch run (9,375 steps) would need 15–19 h, beyond the runs' 12 h limit, and
-  training cannot resume. An I/O test (job 36356658) traced it to opening small files on `/scratch`
-  (NFS, about 20 images/s). Each run now extracts its images from the COCO zips onto node-local
-  disk first (89 s, then about 1,100 images/s; job 36359410). The first queued run will confirm the
-  step time.
 - **P5 inputs:** the selections are in Git, but P5 also needs the CLIP caches. They are on a
   temporary GitHub release (`handoff-clip-features-2026-11-25`) to copy to Alpine.
 
 ## Next steps
 
-1. Check the first queued run's step time with node-local images (see Blockers).
-2. Add Alpine run scripts for D1×P3, D1×P4, and D1×P5.
-3. Download `clip-features.zip` from the `handoff-clip-features-2026-11-25` release onto Alpine,
+1. When runs 01–08 finish, copy `artifacts/runs` and `artifacts/logs` to
+   `/projects/$USER/mega-results/` and write the results analysis (final-epoch Recall@K, seed
+   spread, curves).
+2. Download `clip-features.zip` from the `handoff-clip-features-2026-11-25` release onto Alpine,
    check its SHA-256 (`087c4406…a5f5`), and unpack it into `data/interim/visual/`. Then delete the
    release.
+3. Submit runs 09–11 (D1×P3, D1×P4, D1×P5).
 
 ## Recent completions
+
+### 2026-11-26 (Bill)
+
+- Node-local staging confirmed on full runs: 110–280 s per run, then 0.78–0.81 s/step for P1 and
+  1.04 s/step for P2 on the A100 40 GB (probe: 7.2 s/step). No run ran out of memory.
+- D1×P1 (seeds 5942–5944) and D2×P1 finished; D3–D5×P1 and D1×P2 are running.
+- Added run scripts 09–11 for D1×P3, D1×P4, and D1×P5. Run 11 stops before staging if the CLIP
+  caches are missing. `submit_runs.sh` now skips runs whose output folder already has results.
 
 ### 2026-11-25 (Bill)
 

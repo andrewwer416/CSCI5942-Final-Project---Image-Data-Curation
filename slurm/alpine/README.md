@@ -7,8 +7,9 @@ repository root. The Slurm log path `artifacts/logs/` is relative to that folder
 
 Every run trains for 40 epochs at 640×640 with batch 64, saves `final.pt`, and evaluates full
 val2017 after each epoch. The batch size was measured on a Delta A40 (job 24034477): batch 64
-peaked at 36 GB and took 1.70 s per step, while batch 96 ran out of memory. A run should take
-about 5–6 hours on an A40, and each script asks for 12 hours (QoS `gpu-normal`).
+peaked at 36 GB and took 1.70 s per step, while batch 96 ran out of memory. On the Alpine A100,
+runs 01–08 took 0.78–0.81 s per step (P2: 1.04 s), or 2.5–3 hours per run with images staged on
+local disk. Each script asks for 12 hours (QoS `gpu-normal`).
 
 | Script | Selection | Preprocessing | Model seed |
 |---|---|---|---|
@@ -20,9 +21,12 @@ about 5–6 hours on an A40, and each script asks for 12 hours (QoS `gpu-normal`
 | `run_06_caption_semantic_diversity…` | D4 caption-semantic | P1 | 5942 |
 | `run_07_quality_aware_diversity…` | D5 quality-aware | P1 | 5942 |
 | `run_08_random__aspect_ratio_preserving_rgb…` | D1 random | P2 letterbox + mask | 5942 |
+| `run_09_random__random_resized_crop…` | D1 random | P3 random resized crop | 5942 |
+| `run_10_random__color_contrast_normalization…` | D1 random | P4 white balance + contrast | 5942 |
+| `run_11_random__rgb_plus_clip_features…` | D1 random | P5 RGB + frozen CLIP vector | 5942 |
 
-P3–P5 are not implemented yet, so they have no scripts. A new arm needs one more `run_*.sbatch`
-file in the same format.
+Run 11 (P5) needs the CLIP caches first (step 4 below). It stops before staging if they are
+missing. A new arm needs one more `run_*.sbatch` file in the same format.
 
 Results go to `artifacts/runs/<run_id>__seed<seed>/`. A job refuses to start if that folder
 already holds a run, so a failed run must be deleted before it is resubmitted.
@@ -63,14 +67,19 @@ sbatch slurm/alpine/00_setup.sbatch
 # 3. Short GPU check: batch 64 must fit for both P1 and P2. The log should end with "probe OK".
 sbatch slurm/alpine/01_probe.sbatch
 
-# 4. Submit all eight runs, or submit them one at a time with sbatch.
+# 4. For P5 only: unpack the CLIP caches into data/interim/visual/. Get clip-features.zip from
+#    the handoff-clip-features-2026-11-25 release and check it against its SHA256.json;
+#    the run re-verifies every hash when it loads the caches.
+
+# 5. Submit every run that has no results yet (runs with results are skipped), or submit
+#    them one at a time with sbatch.
 bash slurm/alpine/submit_runs.sh
 
 # Monitor
 squeue -u $USER
 tail -f artifacts/logs/mega-D1P1-s5942-<jobid>.out
 
-# 5. When runs finish, copy results to /projects, which is backed up and never purged.
+# 6. When runs finish, copy results to /projects, which is backed up and never purged.
 rsync -av artifacts/runs artifacts/logs /projects/$USER/mega-results/
 ```
 
@@ -82,8 +91,8 @@ rsync -av artifacts/runs artifacts/logs /projects/$USER/mega-results/
   `sacctmgr -p show associations user=$USER`.
 - **CPU partition.** The setup job uses `acpu`. Alpine rejects jobs that name no partition.
 - **GPU partition.** The scripts use `aa100`, whose GPUs are A100 **40 GB** (3 per node). QoS
-  `gpu-normal` allows 24 h per job and at most 6 A100-40GB GPUs per user at a time, so two of the
-  eight runs wait for a free slot. Batch 64 peaked at 36.2 GB on the A40, which is tight on 40 GB. If the probe runs out of memory at batch 64, use the
+  `gpu-normal` allows 24 h per job and at most 6 A100-40GB GPUs per user at a time, so runs beyond
+  six wait for a free slot (in practice the shared pool is often full and fewer start at once). Batch 64 peaked at 36.2 GB on the A40, which is tight on 40 GB. If the probe runs out of memory at batch 64, use the
   48 GB L40 nodes for every run instead (`--partition=al40 --gres=gpu:l40:1`), so that all arms keep the same batch
   size. Command-line `sbatch` options override the `#SBATCH` lines.
 - **Internet on compute nodes.** Checked on 2026-11-24 from an `acpu` node: the COCO and PyTorch

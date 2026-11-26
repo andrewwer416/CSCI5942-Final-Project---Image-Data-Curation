@@ -118,7 +118,8 @@ Study runs are Slurm jobs in `slurm/alpine/` (one `run_*.sbatch` per run; how-to
   from the COCO zips (`data/raw/coco/downloads/`, keep them) onto node-local `$SLURM_SCRATCH` with
   `slurm/alpine/stage_images.py` (about 90 s), then passes `--image-root`.
 - Every arm uses batch 64. It was measured on a Delta A40: 36.2 GB peak and 1.70 s/step, while
-  batch 96 ran out of memory. A 40-epoch run takes about 5–6 h on an A40.
+  batch 96 ran out of memory. A 40-epoch run took 2.5–3 h on the Alpine A100 (0.8 s/step; P2
+  1.04 s/step).
 - Logging in needs a password and Duo. Claude can reach Alpine only through `ssh alpine`, an
   SSH ControlMaster alias, after the user has logged in with it once.
 - Ask before submitting full training runs: they spend a shared allocation.
