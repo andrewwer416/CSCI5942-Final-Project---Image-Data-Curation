@@ -268,6 +268,13 @@ def main(argv: list[str] | None = None) -> int:
     (args.out / "t2i_recall10.svg").write_text(
         svg_curves(runs, HEADLINE, "Text-to-image Recall@10 on val2017"), encoding="utf-8"
     )
+    # P5 sits about 5x higher and flattens every other line; draw the rest on their own scale too.
+    pixel_only = [r for r in runs if r["p"] != "P5"]
+    if len(pixel_only) < len(runs):
+        (args.out / "t2i_recall10_without_p5.svg").write_text(
+            svg_curves(pixel_only, HEADLINE, "Text-to-image Recall@10 on val2017 (without P5)"),
+            encoding="utf-8",
+        )
     (args.out / "train_loss.svg").write_text(
         svg_curves(runs, "train_loss", "Training loss"), encoding="utf-8"
     )

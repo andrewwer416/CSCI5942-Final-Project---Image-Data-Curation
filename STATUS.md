@@ -1,14 +1,14 @@
 # Project Status
 
-**Last Updated**: 2026-11-26
+**Last Updated**: 2026-11-27
 
 ## Current focus
 
 Every selection (D1–D5) and preprocessing arm (P1–P5) is implemented and approved
 (`docs/study-methods.md`). On Alpine, COCO is downloaded and validated, batch 64 fits
-both P1 and P2, and the first eight of the eleven first-round runs ran at 0.8 s/step without
-errors; results are in `docs/results-round1.md`. D1×P3, D1×P4 and D1×P5 are submitted and
-waiting for GPUs. Next: analyze them when they finish, then agree on the follow-up runs.
+both P1 and P2, and all eleven first-round runs finished at 0.8 s/step without errors; results
+are in `docs/results-round1.md`. P5 (CLIP features) and P3 (random resized crop) are the only
+arms clearly above the baseline. Next: agree on the follow-up runs.
 
 ## Active work
 
@@ -56,7 +56,7 @@ waiting for GPUs. Next: analyze them when they finish, then agree on the follow-
 | Metric | Current | Target |
 |---|---:|---:|
 | Initial run definitions | 9 | 9 |
-| Initial runs completed | 6 of 9, plus 2 extra baseline seeds (`docs/results-round1.md`) | 9 |
+| Initial runs completed | 9 of 9, plus 2 extra baseline seeds (`docs/results-round1.md`) | 9 |
 | Canonical training images | 118,287 | 118,287 |
 | Shared baseline images | 15,000 unique | 15,000 unique |
 | Category-balanced images | 15,000 unique | 15,000 unique |
@@ -101,15 +101,24 @@ None.
 
 ## Next steps
 
-1. When runs 09–11 (D1×P3, D1×P4, D1×P5; jobs 36428563–65) finish, back them up to
-   `/projects/$USER/mega-results/`, add them to `results/round1/`, and rerun
-   `scripts/analyze_runs.py`.
-2. Agree on the follow-up runs (at most 5). Candidates: more seeds for D3 and D4, an unmasked
-   letterbox to separate P2's two changes, a weaker P4 white-balance cap.
-3. Delete the temporary `handoff-clip-features-2026-11-25` release (the caches are on Alpine and
+1. Agree on the follow-up runs (at most 5). Candidates: more seeds for D1×P3 (the largest
+   pixel-only effect) and for D3 and D4, an unmasked letterbox to separate P2's two changes, a
+   weaker P4 white-balance cap. Decide how to present P5, which uses pretrained CLIP knowledge
+   that no other arm has.
+2. Delete the temporary `handoff-clip-features-2026-11-25` release (the caches are on Alpine and
    verified).
 
 ## Recent completions
+
+### 2026-11-27 (Bill)
+
+- Runs 09–11 finished (jobs 36428563–65, 2.4–2.7 h each, no errors) and are backed up to
+  `/projects/$USER/mega-results/`; metrics added to `results/round1/`.
+- D1×P5 reaches t2i R@10 0.411 (baseline mean 0.074); zeroing or shuffling the CLIP vector drops it
+  to 0.017 and 0.006, so the model relies on CLIP. D1×P3 reaches 0.105 (+42%) and is still rising
+  at epoch 40. D1×P4 is inside the baseline range, including on color-word recall.
+- `scripts/analyze_runs.py` also draws the Recall@10 curves without P5, whose scale hides the
+  other runs.
 
 ### 2026-11-26 (Bill)
 
