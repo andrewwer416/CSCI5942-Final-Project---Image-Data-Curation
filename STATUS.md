@@ -7,8 +7,8 @@
 Every selection (D1–D5) and preprocessing arm (P1–P5) is implemented and approved
 (`docs/study-methods.md`). On Alpine, COCO is downloaded and validated, batch 64 fits
 both P1 and P2, and the first eight of the eleven first-round runs ran at 0.8 s/step without
-errors. Scripts for the last three (D1×P3, D1×P4, D1×P5) are ready. Next: back up and analyze the
-eight runs, put the CLIP caches on Alpine, and submit the last three.
+errors; results are in `docs/results-round1.md`. D1×P3, D1×P4 and D1×P5 are submitted and
+waiting for GPUs. Next: analyze them when they finish, then agree on the follow-up runs.
 
 ## Active work
 
@@ -56,7 +56,7 @@ eight runs, put the CLIP caches on Alpine, and submit the last three.
 | Metric | Current | Target |
 |---|---:|---:|
 | Initial run definitions | 9 | 9 |
-| Initial runs completed | 0 | 9 |
+| Initial runs completed | 6 of 9, plus 2 extra baseline seeds (`docs/results-round1.md`) | 9 |
 | Canonical training images | 118,287 | 118,287 |
 | Shared baseline images | 15,000 unique | 15,000 unique |
 | Category-balanced images | 15,000 unique | 15,000 unique |
@@ -97,18 +97,17 @@ d_ff=2048, L=77, 40 epochs.
 
 ## Blockers
 
-- **P5 inputs:** the selections are in Git, but P5 also needs the CLIP caches. They are on a
-  temporary GitHub release (`handoff-clip-features-2026-11-25`) to copy to Alpine.
+None.
 
 ## Next steps
 
-1. When runs 01–08 finish, copy `artifacts/runs` and `artifacts/logs` to
-   `/projects/$USER/mega-results/` and write the results analysis (final-epoch Recall@K, seed
-   spread, curves).
-2. Download `clip-features.zip` from the `handoff-clip-features-2026-11-25` release onto Alpine,
-   check its SHA-256 (`087c4406…a5f5`), and unpack it into `data/interim/visual/`. Then delete the
-   release.
-3. Submit runs 09–11 (D1×P3, D1×P4, D1×P5).
+1. When runs 09–11 (D1×P3, D1×P4, D1×P5; jobs 36428563–65) finish, back them up to
+   `/projects/$USER/mega-results/`, add them to `results/round1/`, and rerun
+   `scripts/analyze_runs.py`.
+2. Agree on the follow-up runs (at most 5). Candidates: more seeds for D3 and D4, an unmasked
+   letterbox to separate P2's two changes, a weaker P4 white-balance cap.
+3. Delete the temporary `handoff-clip-features-2026-11-25` release (the caches are on Alpine and
+   verified).
 
 ## Recent completions
 
@@ -117,6 +116,14 @@ d_ff=2048, L=77, 40 epochs.
 - Node-local staging confirmed on full runs: 110–280 s per run, then 0.78–0.81 s/step for P1 and
   1.04 s/step for P2 on the A100 40 GB (probe: 7.2 s/step). No run ran out of memory.
 - D1×P1 (seeds 5942–5944) and D2×P1 finished; D3–D5×P1 and D1×P2 are running.
+- Runs 01–08 finished (`docs/results-round1.md`): D3 and D4 score below the D1×P1 seed range
+  (t2i R@10 0.061 and 0.057 against 0.070–0.077); D2, D5 and P2 are inside it. One seed each for
+  D2–D5 and P2, so preliminary. Per-epoch metrics are committed in `results/round1/`; checkpoints
+  and logs are backed up to `/projects/$USER/mega-results/`.
+- P5's CLIP caches are on Alpine: archive SHA-256 matches, all six file hashes and both source
+  manifest hashes verified. Runs 09–11 are submitted.
+- Added `scripts/analyze_runs.py`: final-epoch and last-5-mean Recall@K, comparison with the D1×P1
+  seed range, P5 diagnostics, curves.
 - Added run scripts 09–11 for D1×P3, D1×P4, and D1×P5. Run 11 stops before staging if the CLIP
   caches are missing. `submit_runs.sh` now skips runs whose output folder already has results.
 

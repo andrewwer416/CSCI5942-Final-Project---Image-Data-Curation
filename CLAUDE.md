@@ -44,6 +44,7 @@ configs/                 Fixed parameters and experiment matrix
 data/                    Local raw, interim, and processed data (ignored)
 docs/                    Architecture and scientific-method notes
 reports/                 Regenerable validation output (ignored)
+results/round1/          Per-epoch metrics and configs of finished study runs (committed)
 src/vlm_data/            Data CLI and library
 tests/                   Synthetic, offline test suite
 .agents/context/         Glossary, parameter ownership, troubleshooting
