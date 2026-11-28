@@ -44,6 +44,7 @@ configs/                 Fixed parameters and experiment matrix
 data/                    Local raw, interim, and processed data (ignored)
 docs/                    Architecture and scientific-method notes
 reports/                 Regenerable validation output (ignored)
+results/round1/          Per-epoch metrics and configs of finished study runs (committed)
 src/vlm_data/            Data CLI and library
 tests/                   Synthetic, offline test suite
 .agents/context/         Glossary, parameter ownership, troubleshooting
@@ -88,6 +89,41 @@ tests/                   Synthetic, offline test suite
 - Regenerate a selection without recording its seed and source hash.
 - Treat an uncalibrated category-balance override as an approved study method.
 - Overwrite a user's generated artifact without an atomic write.
+
+## Training on CURC Alpine
+
+Study runs are Slurm jobs in `slurm/alpine/` (one `run_*.sbatch` per run; how-to in
+`slurm/alpine/README.md`). `slurm/delta/` was used only to measure the batch size.
+
+| Location | Quota | Backed up | Use it for |
+|---|---|---|---|
+| `/home/$USER` | 2 GB | Yes | Nothing for this project; too small |
+| `/projects/$USER` | 250 GB | Yes, never purged | The Python environment (`software/mega-env`), pip/conda caches, result backups |
+| `/scratch/alpine/$USER` | 10 TB | No; purged 90 days after creation | The repository clone, COCO images, logs, and training runs |
+
+- CURC terminates jobs that do heavy I/O on `/home` or `/projects`, and may suspend the account.
+  Submit every job from the clone under `/scratch/alpine/$USER/mega`. `slurm/alpine/env.sh`
+  refuses to run a job submitted from `/home` or `/projects`.
+- Copy finished runs and logs to `/projects/$USER/mega-results/` with `rsync`, because scratch is
+  neither backed up nor permanent.
+- Account `ucb857_peak1`. QoS names are `gpu-normal` and `cpu-normal`, not `normal`. GPU partitions
+  are `aa100` (A100 40 GB, default for runs; `gpu-normal` allows 24 h and 6 of these GPUs per user)
+  and `al40` (L40 48 GB, the fallback if batch 64 does not fit). Every job must name a partition (CPU: `acpu`),
+  and GPU jobs should name the GPU type (`--gres=gpu:a100-40gb:1` or `--gres=gpu:l40:1`).
+- Software modules (`module load miniforge`) exist only on compute nodes, not on login nodes. A
+  batch job inherits the login node's module path, so `module load` fails inside `sbatch`; run it
+  in a fresh `bash -lc` on the compute node (see `slurm/alpine/00_setup.sbatch`).
+  Compute nodes can reach the internet.
+- Never read training images straight from `/scratch` inside a job: it is NFS, and opening small
+  files there runs at about 20 images/s. `run_training` in `env.sh` first extracts the run's images
+  from the COCO zips (`data/raw/coco/downloads/`, keep them) onto node-local `$SLURM_SCRATCH` with
+  `slurm/alpine/stage_images.py` (about 90 s), then passes `--image-root`.
+- Every arm uses batch 64. It was measured on a Delta A40: 36.2 GB peak and 1.70 s/step, while
+  batch 96 ran out of memory. A 40-epoch run took 2.5–3 h on the Alpine A100 (0.8 s/step; P2
+  1.04 s/step).
+- Logging in needs a password and Duo. Claude can reach Alpine only through `ssh alpine`, an
+  SSH ControlMaster alias, after the user has logged in with it once.
+- Ask before submitting full training runs: they spend a shared allocation.
 
 ## Notes
 

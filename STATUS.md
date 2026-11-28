@@ -1,19 +1,22 @@
 # Project Status
 
-**Last Updated**: 2026-11-25
+**Last Updated**: 2026-11-27
 
 ## Current focus
 
 Every selection (D1–D5) and preprocessing arm (P1–P5) is implemented and approved
-(`docs/study-methods.md`). Next: move to Alpine, measure a workable 640×640 batch size, and train
-the nine first-round runs plus the two extra baseline seeds.
+(`docs/study-methods.md`). On Alpine, COCO is downloaded and validated, batch 64 fits
+both P1 and P2, and all eleven first-round runs finished at 0.8 s/step without errors; results
+are in `docs/results-round1.md`. P5 (CLIP features) and P3 (random resized crop) are the only
+arms clearly above the baseline. Seven exploratory follow-up runs centered on P3 (runs 12–18) are
+submitted.
 
 ## Active work
 
 | Task | Status | Notes |
 |---|---|---|
 | Annotation acquisition | Complete | Official 2017 archive checksum verified |
-| Image acquisition | Partial | Andrew's machine: all 118,287 train and 5,000 val JPEGs, checksum-verified. Bill's laptop: smoke sample only (512 train / 128 val). Alpine: not downloaded |
+| Image acquisition | Partial | Andrew's machine: all 118,287 train and 5,000 val JPEGs, checksum-verified. Bill's laptop: smoke sample only (512 train / 128 val). Alpine: all downloaded and validated (job 36286482) |
 | Canonical manifests | Complete | 118,287 train and 5,000 validation records |
 | Random baseline selection | Complete | 15,000 records, seed 5942, stable-hash algorithm |
 | Category-balance analysis | Complete | Real train-count grid recommends 2.5% threshold / 4× cap |
@@ -27,8 +30,8 @@ the nine first-round runs plus the two extra baseline seeds.
 | Random resized crop (P3) | Complete | Image-relative ratio ×0.8–1.25, area 50–100%, stateless crops, P1 evaluation; 95.5% caption-consistent in the train-only audit; `docs/preprocessing-p3.md` |
 | Color and contrast normalization (P4) | Complete | Per-image Shades-of-Gray (p=6) white balance + luma 1–99% stretch, 2× caps, unfitted, same at evaluation; color-caption recall reported in every arm; `docs/preprocessing-p4.md` |
 | RGB + CLIP features (P5) | Complete | Frozen OpenCLIP vector, late fusion `projection(LayerNorm(CLS + W·clip))`, no gate, paired init with P1; val2017 CLIP cache built; `docs/preprocessing-p5.md` |
-| VLM model and training loop | Smoke-tested | Runs end to end on 4 GB; no full-length run yet |
-| Alpine job scripts | Not started | — |
+| VLM model and training loop | Full runs done | 40-epoch runs on the Alpine A100 at batch 64: 0.78–0.81 s/step (P2 1.04 s), 2.5–3 h each |
+| Alpine job scripts | All 11 first-round runs scripted; runs 01–08 done or running | `slurm/alpine/`: setup, batch probe, and one script per run: D1–D5×P1 (3 baseline seeds), D1×P2, and D1×P3–P5 (run 11 needs the CLIP caches). `submit_runs.sh` skips runs that already have results |
 
 ## Foundation progress
 
@@ -47,14 +50,14 @@ the nine first-round runs plus the two extra baseline seeds.
 - [x] Resolve and implement every selection (D1–D5) and preprocessing arm (P1–P5).
 - [x] Download and checksum-verify val2017; build the val2017 CLIP cache.
 - [x] Smoke-test all five arms end to end on real val2017 images.
-- [ ] Run the baseline (D1×P1) at full size on Alpine.
+- [x] Run the baseline (D1×P1) at full size on Alpine (3 seeds).
 
 ## Key metrics
 
 | Metric | Current | Target |
 |---|---:|---:|
 | Initial run definitions | 9 | 9 |
-| Initial runs completed | 0 | 9 |
+| Initial runs completed | 9 of 9, plus 2 extra baseline seeds (`docs/results-round1.md`) | 9 |
 | Canonical training images | 118,287 | 118,287 |
 | Shared baseline images | 15,000 unique | 15,000 unique |
 | Category-balanced images | 15,000 unique | 15,000 unique |
@@ -74,9 +77,8 @@ The local consolidation adds explicit model seeds, source hashes, selection vali
 and protection against overwriting completed runs. No full study training was launched.
 
 Andrew approved these training defaults, including the bidirectional text tower,
-constant learning rate without warmup/decay, and zero dropout. The actual study
-batch size remains subject to measurement at 640×640 on Alpine and must be held
-fixed across compared arms.
+constant learning rate without warmup/decay, and zero dropout. The study batch
+size (64) is held fixed across compared arms.
 
 | Choice | Value | Reason |
 |---|---|---|
@@ -89,29 +91,63 @@ fixed across compared arms.
 | Text pooling | Output at the `<eos>` position | Same as CLIP |
 | Image encoder width | 768 dimensions, 12 heads | Standard ViT-B size |
 | Mixed precision | On for GPU runs (`--no-amp` disables it) | Reduces GPU memory use |
-| Batch size | Not decided; `--batch-size`, default 32 | To be measured at 640×640 on Alpine |
+| Batch size | 64 for every arm | Delta A40 probe (job 24034477), 640 px, AMP: batch 32 = 19.0 GB, 0.91 s/step; batch 64 = 36.2 GB, 1.70 s/step; batch 96 out of memory. About 5–6 h per 40-epoch run on an A40. Alpine A100 40 GB probe (job 36287488): P1 36.2 GB, P2 38.0 GB |
 
 Proposal values are used as written: ViT-B/16 at 640×640, 12-layer text Transformer with d=512,
 d_ff=2048, L=77, 40 epochs.
 
 ## Blockers
 
-- Full COCO train and validation images are not on Alpine.
-- Alpine job scripts do not exist yet.
-- **P5 inputs:** the selections are in Git, but P5 also needs the CLIP caches. They are on a
-  temporary GitHub release (`handoff-clip-features-2026-11-25`) to copy to Alpine.
+None.
 
 ## Next steps
 
-1. Merge PR #3 (P3–P5 and docs; D5 and P2 were merged in PR #2).
-2. Download the full COCO images on Alpine and run `vlm-data validate --check-files`.
-3. Download `clip-features.zip` from the `handoff-clip-features-2026-11-25` release, check its
-   SHA-256 (`087c4406…a5f5`), and unpack it into `data/interim/visual/`. Then delete the release.
-4. Run a short Alpine job to find a workable batch size at 640×640 and hold it fixed across arms.
-5. Train D1×P1 with model seeds 5942–5944, then the other eight first-round runs (see
-   `configs/experiment_matrix.toml`).
+1. When runs 12–18 (jobs 36507114–20) finish, back them up, add them to `results/round1/`
+   (or a `round2/` folder), and rerun `scripts/analyze_runs.py`. Decision rules fixed before the
+   results: P3 holds if all three D1×P3 seeds end above 0.0768; D3's drop holds if its second seed
+   ends below 0.0702; a D×P3 arm differs from D1×P3 only outside the three D1×P3 seeds' range.
+2. Decide how to present P5, which uses pretrained CLIP knowledge that no other arm has. The
+   report must label runs 12–18 exploratory and note that 7 follow-ups exceed the proposal's
+   estimate of up to 5 (3 of them are extra seeds, 4 are new pairings).
+3. Delete the temporary `handoff-clip-features-2026-11-25` release (the caches are on Alpine and
+   verified).
 
 ## Recent completions
+
+### 2026-11-27 (Bill)
+
+- Runs 09–11 finished (jobs 36428563–65, 2.4–2.7 h each, no errors) and are backed up to
+  `/projects/$USER/mega-results/`; metrics added to `results/round1/`.
+- D1×P5 reaches t2i R@10 0.411 (baseline mean 0.074); zeroing or shuffling the CLIP vector drops it
+  to 0.017 and 0.006, so the model relies on CLIP. D1×P3 reaches 0.105 (+42%) and is still rising
+  at epoch 40. D1×P4 is inside the baseline range, including on color-word recall.
+- `scripts/analyze_runs.py` also draws the Recall@10 curves without P5, whose scale hides the
+  other runs.
+- Submitted follow-up runs 12–18: D1×P3 seeds 5943 and 5944, D2–D5×P3, and D3×P1 seed 5943.
+
+### 2026-11-26 (Bill)
+
+- Node-local staging confirmed on full runs: 110–280 s per run, then 0.78–0.81 s/step for P1 and
+  1.04 s/step for P2 on the A100 40 GB (probe: 7.2 s/step). No run ran out of memory.
+- D1×P1 (seeds 5942–5944) and D2×P1 finished; D3–D5×P1 and D1×P2 are running.
+- Runs 01–08 finished (`docs/results-round1.md`): D3 and D4 score below the D1×P1 seed range
+  (t2i R@10 0.061 and 0.057 against 0.070–0.077); D2, D5 and P2 are inside it. One seed each for
+  D2–D5 and P2, so preliminary. Per-epoch metrics are committed in `results/round1/`; checkpoints
+  and logs are backed up to `/projects/$USER/mega-results/`.
+- P5's CLIP caches are on Alpine: archive SHA-256 matches, all six file hashes and both source
+  manifest hashes verified. Runs 09–11 are submitted.
+- Added `scripts/analyze_runs.py`: final-epoch and last-5-mean Recall@K, comparison with the D1×P1
+  seed range, P5 diagnostics, curves.
+- Added run scripts 09–11 for D1×P3, D1×P4, and D1×P5. Run 11 stops before staging if the CLIP
+  caches are missing. `submit_runs.sh` now skips runs whose output folder already has results.
+
+### 2026-11-25 (Bill)
+
+- Alpine setup job (36286482): full COCO train and val downloaded, manifests built, and
+  `vlm-data validate --check-files` passed (118,287 train, 5,000 val, five 15,000-image selections).
+- Alpine probe (36287488, A100 PCIe 40 GB, batch 64, 20 steps): P1 peaks at 36.2 GB and P2 at
+  38.0 GB, so batch 64 fits both. The eight runs D1–D5×P1 (D1 with seeds 5942–5944) and D1×P2 are
+  queued behind it.
 
 ### 2026-11-21 to 11-25 (Andrew)
 
@@ -124,6 +160,13 @@ d_ff=2048, L=77, 40 epochs.
 - **val2017:** downloaded and verified, with its CLIP cache built. All five arms smoke-tested end
   to end on real images.
 - **Handoff:** the CLIP caches are on a temporary GitHub release, verified by download and checksum.
+
+### 2026-11-24 (Bill)
+
+- Measured the study batch size on an NCSA Delta A40 with full COCO downloaded and validated there:
+  batch 64 fits (36.2 GB, 1.70 s/step) and batch 96 does not.
+- Added `slurm/alpine/`: a setup job, a batch-64 probe for P1 and P2, one script per study run, and
+  a submit helper. `slurm/delta/` holds the Delta probe and training scripts.
 
 ### 2026-11-08 (Bill)
 

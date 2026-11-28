@@ -118,12 +118,16 @@ A full run uses the official image folder and the configured 640 px and 40 epoch
 PYTHONPATH=src python3 -m vlm_train.train \
   --selection data/processed/selections/random_seed5942_n15000.jsonl \
   --preprocessing standard_rgb \
-  --output-dir artifacts/random__standard_rgb --batch-size <N> --save-checkpoint
+  --output-dir artifacts/random__standard_rgb --batch-size 64 --save-checkpoint
 ```
 
 Run directories follow the `configs/experiment_matrix.toml` run IDs, such as
 `artifacts/random__random_resized_crop`. P5 adds zeroed and shuffled CLIP diagnostics to its
 final-epoch metrics, and every run reports color-caption recall (`t2i_recall@K_color`).
+
+The study runs on CURC Alpine with one Slurm job per run: see
+[`slurm/alpine/README.md`](slurm/alpine/README.md). `slurm/delta/` holds the NCSA Delta scripts
+used to measure the batch size.
 
 Each run writes `run_config.json`, `vocabulary.json`, and `metrics.jsonl` to its output directory.
 
