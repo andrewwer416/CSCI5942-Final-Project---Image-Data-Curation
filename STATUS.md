@@ -8,7 +8,8 @@ Every selection (D1–D5) and preprocessing arm (P1–P5) is implemented and app
 (`docs/study-methods.md`). On Alpine, COCO is downloaded and validated, batch 64 fits
 both P1 and P2, and all eleven first-round runs finished at 0.8 s/step without errors; results
 are in `docs/results-round1.md`. P5 (CLIP features) and P3 (random resized crop) are the only
-arms clearly above the baseline. Next: agree on the follow-up runs.
+arms clearly above the baseline. Seven exploratory follow-up runs centered on P3 (runs 12–18) are
+submitted.
 
 ## Active work
 
@@ -101,11 +102,14 @@ None.
 
 ## Next steps
 
-1. Agree on the follow-up runs (at most 5). Candidates: more seeds for D1×P3 (the largest
-   pixel-only effect) and for D3 and D4, an unmasked letterbox to separate P2's two changes, a
-   weaker P4 white-balance cap. Decide how to present P5, which uses pretrained CLIP knowledge
-   that no other arm has.
-2. Delete the temporary `handoff-clip-features-2026-11-25` release (the caches are on Alpine and
+1. When runs 12–18 (jobs 36507114–20) finish, back them up, add them to `results/round1/`
+   (or a `round2/` folder), and rerun `scripts/analyze_runs.py`. Decision rules fixed before the
+   results: P3 holds if all three D1×P3 seeds end above 0.0768; D3's drop holds if its second seed
+   ends below 0.0702; a D×P3 arm differs from D1×P3 only outside the three D1×P3 seeds' range.
+2. Decide how to present P5, which uses pretrained CLIP knowledge that no other arm has. The
+   report must label runs 12–18 exploratory and note that 7 follow-ups exceed the proposal's
+   estimate of up to 5 (3 of them are extra seeds, 4 are new pairings).
+3. Delete the temporary `handoff-clip-features-2026-11-25` release (the caches are on Alpine and
    verified).
 
 ## Recent completions
@@ -119,6 +123,7 @@ None.
   at epoch 40. D1×P4 is inside the baseline range, including on color-word recall.
 - `scripts/analyze_runs.py` also draws the Recall@10 curves without P5, whose scale hides the
   other runs.
+- Submitted follow-up runs 12–18: D1×P3 seeds 5943 and 5944, D2–D5×P3, and D3×P1 seed 5943.
 
 ### 2026-11-26 (Bill)
 

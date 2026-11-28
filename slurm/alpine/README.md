@@ -24,6 +24,16 @@ local disk. Each script asks for 12 hours (QoS `gpu-normal`).
 | `run_09_random__random_resized_crop…` | D1 random | P3 random resized crop | 5942 |
 | `run_10_random__color_contrast_normalization…` | D1 random | P4 white balance + contrast | 5942 |
 | `run_11_random__rgb_plus_clip_features…` | D1 random | P5 RGB + frozen CLIP vector | 5942 |
+| `run_12_random__random_resized_crop__seed5943` | D1 random | P3 | 5943 |
+| `run_13_random__random_resized_crop__seed5944` | D1 random | P3 | 5944 |
+| `run_14_category_balanced__random_resized_crop…` | D2 category-balanced | P3 | 5942 |
+| `run_15_visual_diversity__random_resized_crop…` | D3 visual diversity | P3 | 5942 |
+| `run_16_caption_semantic_diversity__random_resized_crop…` | D4 caption-semantic | P3 | 5942 |
+| `run_17_quality_aware_diversity__random_resized_crop…` | D5 quality-aware | P3 | 5942 |
+| `run_18_visual_diversity__standard_rgb__seed5943` | D3 visual diversity | P1 | 5943 |
+
+Runs 12–18 are exploratory follow-ups, chosen after looking at the round-1 val2017 results
+(`docs/results-round1.md`).
 
 Run 11 (P5) needs the CLIP caches first (step 4 below). It stops before staging if they are
 missing. A new arm needs one more `run_*.sbatch` file in the same format.
